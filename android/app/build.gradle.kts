@@ -42,3 +42,20 @@ android {
 flutter {
     source = "../.."
 }
+
+tasks.register("reverseAdbPorts") {
+    doLast {
+        try {
+            exec {
+                commandLine("adb", "reverse", "tcp:8090", "tcp:8090")
+            }
+            logger.lifecycle("ADB port reverse successful: tcp:8090 -> tcp:8090")
+        } catch (e: Exception) {
+            logger.lifecycle("Skipping ADB port reverse: ${e.message}")
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("reverseAdbPorts")
+}

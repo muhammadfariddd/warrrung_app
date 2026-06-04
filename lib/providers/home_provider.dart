@@ -56,7 +56,7 @@ class HomeProvider extends ChangeNotifier {
   /// Concurrently fetches categories, special deals, and grouped products.
   ///
   /// Updates the UI states: [HomeStateLoading] -> [HomeStateLoaded] or [HomeStateError].
-  Future<void> loadHomeData() async {
+  Future<void> loadHomeData({String? outletId}) async {
     // Use microtask to defer notifyListeners to avoid calling it during
     // the widget build phase, which would cause 'setState called during build' errors.
     if (_state is! HomeStateLoading) {
@@ -68,8 +68,8 @@ class HomeProvider extends ChangeNotifier {
       // Execute all three repository calls concurrently to minimize loading time
       final results = await Future.wait([
         _productRepository.fetchCategories(),
-        _productRepository.fetchSpecialDeals(),
-        _productRepository.fetchProductsGroupedByCategory(),
+        _productRepository.fetchSpecialDeals(outletId: outletId),
+        _productRepository.fetchProductsGroupedByCategory(outletId: outletId),
       ]);
 
       final categories = results[0] as List<CategoryModel>;

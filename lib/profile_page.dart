@@ -274,7 +274,7 @@ class ProfilePage extends StatelessWidget {
                               : Text(
                                   _getInitials(displayName),
                                   style: GoogleFonts.poppins(
-                                    fontSize: 22,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                     color: Colors.white,
                                   ),
@@ -282,7 +282,7 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 8),
 
                     // Greeting Text
                     Expanded(
@@ -293,7 +293,7 @@ class ProfilePage extends StatelessWidget {
                           Text(
                             'Hai,',
                             style: GoogleFonts.poppins(
-                              fontSize: 16,
+                              fontSize: 12,
                               color: Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
                             ),
@@ -303,7 +303,7 @@ class ProfilePage extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
-                              fontSize: 20,
+                              fontSize: 16,
                               color: const Color(0xFF1A1A1A),
                               fontWeight: FontWeight.w600,
                             ),

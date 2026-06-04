@@ -40,12 +40,16 @@ class ProductRepository {
   /// "Sajian Spesial Hari Ini" and the product is marked as available.
   ///
   /// Throws [NetworkFailure] or [ServerFailure] on connection or database errors.
-  Future<List<ProductModel>> fetchSpecialDeals() async {
+  Future<List<ProductModel>> fetchSpecialDeals({String? outletId}) async {
     try {
+      String filter = 'is_special = true && is_available = true';
+      if (outletId != null && outletId.isNotEmpty) {
+        filter += ' && outlet_id = "$outletId"';
+      }
       final records = await _pbService.client
           .collection('products')
           .getFullList(
-            filter: 'is_special = true && is_available = true',
+            filter: filter,
             expand: 'category_id',
           );
 
@@ -70,13 +74,16 @@ class ProductRepository {
   ///
   /// Throws [NetworkFailure] or [ServerFailure] on connection or database errors.
   Future<Map<String, List<ProductModel>>>
-  fetchProductsGroupedByCategory() async {
+  fetchProductsGroupedByCategory({String? outletId}) async {
     try {
+      String filter = 'is_available = true && category_id.name != "Sajian Spesial Hari Ini"';
+      if (outletId != null && outletId.isNotEmpty) {
+        filter += ' && outlet_id = "$outletId"';
+      }
       final records = await _pbService.client
           .collection('products')
           .getFullList(
-            filter:
-                'is_available = true && category_id.name != "Sajian Spesial Hari Ini"',
+            filter: filter,
             expand: 'category_id',
             sort: 'category_id.name,name',
           );

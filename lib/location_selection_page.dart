@@ -106,7 +106,11 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                         _searchController.clear();
                         locationProvider.setSearchQuery('');
                       },
-                      child: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                      child: const Icon(
+                        Icons.clear,
+                        color: Colors.grey,
+                        size: 20,
+                      ),
                     ),
                 ],
               ),
@@ -124,22 +128,32 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
             child: locationProvider.isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFC62828)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFFC62828),
+                      ),
                     ),
                   )
                 : locationProvider.outlets.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        itemCount: locationProvider.outlets.length,
-                        itemBuilder: (context, index) {
-                          final outlet = locationProvider.outlets[index];
-                          // Apply horizontal pill filters dynamically
-                          if (!_applyCustomFilters(outlet)) return const SizedBox.shrink();
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    itemCount: locationProvider.outlets.length,
+                    itemBuilder: (context, index) {
+                      final outlet = locationProvider.outlets[index];
+                      if (!_applyCustomFilters(outlet)) {
+                        return const SizedBox.shrink();
+                      }
 
-                          return _buildOutletCard(context, outlet, locationProvider);
-                        },
-                      ),
+                      return _buildOutletCard(
+                        context,
+                        outlet,
+                        locationProvider,
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -150,19 +164,19 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
   bool _applyCustomFilters(OutletModel outlet) {
     if (_selectedOrderFilter == 'Pickup' && !outlet.hasPickup) return false;
     if (_selectedOrderFilter == 'Delivery' && !outlet.hasDelivery) return false;
-    
+
     final nameLower = outlet.name.toLowerCase();
     if (_selectedBrandFilter == 'waRRRung Kopi') {
-      return nameLower.contains('kopi') || 
-             nameLower.contains('mall') || 
-             nameLower.contains('marina') || 
-             nameLower.contains('bungalows');
+      return nameLower.contains('kopi') ||
+          nameLower.contains('mall') ||
+          nameLower.contains('marina') ||
+          nameLower.contains('bungalows');
     }
     if (_selectedBrandFilter == 'waRRRung Makan') {
-      return nameLower.contains('standard') || 
-             nameLower.contains('utama') || 
-             nameLower.contains('gudeg') || 
-             nameLower.contains('ihsan');
+      return nameLower.contains('standard') ||
+          nameLower.contains('utama') ||
+          nameLower.contains('gudeg') ||
+          nameLower.contains('ihsan');
     }
     return true;
   }
@@ -183,7 +197,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-              color: isActive ? const Color(0xFF00897B) : Colors.grey.shade500, // Teal matching Kopi Kenangan
+              color: isActive
+                  ? const Color(0xFF00897B)
+                  : Colors.grey.shade500, // Teal matching Kopi Kenangan
             ),
           ),
           const SizedBox(height: 6),
@@ -281,7 +297,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         decoration: BoxDecoration(
           color: isActive ? Colors.white : const Color(0xFFF5F5F5),
           border: Border.all(
-            color: isActive ? const Color(0xFFC62828) : Colors.transparent, // Kopi Kenangan red border
+            color: isActive
+                ? const Color(0xFFC62828)
+                : Colors.transparent, // Kopi Kenangan red border
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(20),
@@ -312,7 +330,11 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.location_on_outlined, color: Color(0xFF1976D2), size: 24),
+          const Icon(
+            Icons.location_on_outlined,
+            color: Color(0xFF1976D2),
+            size: 24,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -342,7 +364,9 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                       _showPermissionBanner = false;
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Akses lokasi diberikan (Simulasi)')),
+                      const SnackBar(
+                        content: Text('Akses lokasi diberikan (Simulasi)'),
+                      ),
                     );
                   },
                   child: Text(
@@ -426,8 +450,12 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                  color: isFavorite ? const Color(0xFFC62828) : Colors.grey.shade400,
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_outline_rounded,
+                  color: isFavorite
+                      ? const Color(0xFFC62828)
+                      : Colors.grey.shade400,
                   size: 20,
                 ),
               ),
@@ -439,23 +467,28 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Red Operational Hours Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      outlet.operationalHours,
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFFC62828),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                  // Red Operational Hours Badge (only show if closed)
+                  if (!outlet.isOpen) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        outlet.closedStatusText,
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFFC62828),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
 
                   // Store Name
                   Text(
@@ -484,9 +517,12 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
                   // Badges: Delivery, Pickup, Dine-in
                   Row(
                     children: [
-                      if (outlet.hasDelivery) _buildServiceBadge('Delivery', Colors.green),
-                      if (outlet.hasPickup) _buildServiceBadge('Pickup', Colors.teal),
-                      if (outlet.hasDineIn) _buildServiceBadge('Dine-In', Colors.purple),
+                      if (outlet.hasDelivery)
+                        _buildServiceBadge('Delivery', Colors.green),
+                      if (outlet.hasPickup)
+                        _buildServiceBadge('Pickup', Colors.teal),
+                      if (outlet.hasDineIn)
+                        _buildServiceBadge('Dine-In', Colors.purple),
                     ],
                   ),
                 ],
@@ -497,7 +533,7 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: const EdgeInsets.only(top: 24.0),
+                padding: const EdgeInsets.only(top: 2.0),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -560,7 +596,11 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Iconsax.location_cross_copy, size: 64, color: Colors.grey.shade300),
+            Icon(
+              Iconsax.location_cross_copy,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
             const SizedBox(height: 16),
             Text(
               'Lokasi tidak ditemukan',

@@ -38,7 +38,9 @@ dependencies:
   get: ^4.6.6
   google_fonts: ^8.1.0
   pocketbase: ^0.24.0
+  google_sign_in: ^6.2.1
   provider: ^6.1.5+1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

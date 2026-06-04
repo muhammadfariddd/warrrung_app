@@ -25,8 +25,8 @@ class PocketBaseService {
 
   // Resolve local development URL dynamically based on current platform
   static String get _localUrl {
-    // Using 127.0.0.1 allows physical Android devices to connect via USB
-    // using ADB reverse port forwarding (adb reverse tcp:8090 tcp:8090).
+    // Gunakan localhost dengan ADB reverse port forwarding secara otomatis saat build/run
+    // Menghilangkan kebutuhan untuk menjalankan terowongan (tunnel) publik
     return 'http://127.0.0.1:8090';
   }
 

@@ -61,51 +61,47 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Scrollable content
+          // Scrollable content with sticky header
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeaderArea(),
-
-                  // _buildDeliveryToggle(),
-                  // const SizedBox(height: 16),
-                  if (homeState is HomeStateLoading) ...[
-                    _buildLoadingState(),
-                  ] else if (homeState is HomeStateError) ...[
-                    _buildErrorState(
-                      homeState.message,
-                      homeProvider.loadHomeData,
-                    ),
-                  ] else if (homeState is HomeStateLoaded) ...[
-                    _buildPromoBanner(),
-                    if (homeState.specialDeals.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      _buildSpecialSection(homeState.specialDeals),
+            child: CustomScrollView(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _StickyHeaderDelegate(
+                    statusBarHeight: MediaQuery.of(context).padding.top,
+                    greetingWidget: _buildGreetingWidget(),
+                    selectorWidget: _buildLocationSelectorRow(context),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (homeState is HomeStateLoading) ...[
+                        _buildLoadingState(),
+                      ] else if (homeState is HomeStateError) ...[
+                        _buildErrorState(
+                          homeState.message,
+                          homeProvider.loadHomeData,
+                        ),
+                      ] else if (homeState is HomeStateLoaded) ...[
+                        _buildPromoBanner(),
+                        if (homeState.specialDeals.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          _buildSpecialSection(homeState.specialDeals),
+                        ],
+                        const SizedBox(height: 20),
+                        _buildVoucherSection(),
+                        if (homeState.productsByCategory.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          _buildMenuSections(homeState.productsByCategory),
+                        ],
+                      ],
+                      const SizedBox(height: 100), // space for sticky button
                     ],
-                    // Category Chips (excl. 'Sajian Spesial Hari Ini')
-                    // if (homeState.categories.isNotEmpty) ...[
-                    //   const SizedBox(height: 20),
-                    //   _buildCategorySection(
-                    //     homeState.categories
-                    //         .where(
-                    //           (cat) => cat.name != 'Sajian Spesial Hari Ini',
-                    //         )
-                    //         .toList(),
-                    //   ),
-                    // ],
-                    const SizedBox(height: 20),
-                    _buildVoucherSection(),
-                    if (homeState.productsByCategory.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      _buildMenuSections(homeState.productsByCategory),
-                    ],
-                  ],
-
-                  const SizedBox(height: 100), // space for sticky button
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -116,218 +112,171 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ─── HEADER AREA ──────────────────────────────────────────────────
-  Widget _buildHeaderArea() {
-    return Container(
+  // ─── GREETING WIDGET ──────────────────────────────────────────────
+  Widget _buildGreetingWidget() {
+    return SizedBox(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFE3F2FD), // soft sky blue at the top
-            Colors.white, // fading to white
-          ],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Stack(
-                clipBehavior: Clip
-                    .none, // Memungkinkan gambar digambar melebihi batas atas Stack tanpa terpotong
-                children: [
-                  // Vektor Siang image at the top right
-                  Positioned(
-                    right: 0,
-                    top:
-                        -30, // Menggeser gambar ke atas (area status bar) agar terlihat utuh dan tidak terpotong
-                    child: Image.asset(
-                      'images/vektor_siang.png',
-                      width: 180,
-                      fit: BoxFit.contain,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Vektor Siang image at the top right
+          Positioned(
+            right: 0,
+            top: -30,
+            child: Image.asset(
+              'images/vektor_siang.png',
+              width: 180,
+              fit: BoxFit.contain,
+            ),
+          ),
+
+          // Greeting text
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Builder(
+              builder: (context) {
+                final authProvider = context.watch<AuthProvider>();
+                final userName = authProvider.isAuthenticated
+                    ? (authProvider.currentUser?.data['name'] as String? ??
+                          authProvider.currentUser?.data['phone_number']
+                              as String? ??
+                          'Sahabat')
+                    : 'Sahabat waRRRung';
+
+                return RichText(
+                  text: TextSpan(
+                    text: 'Hai, ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: _textGray,
                     ),
+                    children: [
+                      TextSpan(
+                        text: userName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _textDark,
+                        ),
+                      ),
+                    ],
                   ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                  // Greeting text
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Builder(
-                      builder: (context) {
-                        final authProvider = context.watch<AuthProvider>();
-                        final userName = authProvider.isAuthenticated
-                            ? (authProvider.currentUser?.data['name']
-                                      as String? ??
-                                  authProvider.currentUser?.data['phone_number']
-                                      as String? ??
-                                  'Sahabat')
-                            : 'Sahabat waRRRung';
+  // ─── LOCATION SELECTOR ROW ────────────────────────────────────────
+  Widget _buildLocationSelectorRow(BuildContext context) {
+    final locationProvider = context.watch<LocationProvider>();
+    final selectedOutlet = locationProvider.selectedOutlet;
 
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Dropdown / Location Selector
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LocationSelectionPage(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      bottomLeft: Radius.circular(8),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            RichText(
-                              text: TextSpan(
-                                text: 'Hai, ',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: _textGray,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: userName,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: _textDark,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              selectedOutlet?.name ?? 'Pilih Outlet',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: _textDark,
                               ),
                             ),
-                            if (authProvider.isAuthenticated)
-                              GestureDetector(
-                                onTap: () {
-                                  authProvider.logout();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Berhasil keluar sesi.'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: _primaryRed.withValues(alpha: 0.5),
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'Keluar',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: _primaryRed,
-                                    ),
-                                  ),
+                            if (selectedOutlet != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                selectedOutlet.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  color: _textGray,
                                 ),
                               ),
+                            ],
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down_outlined,
+                        color: _primaryRed,
+                        size: 22,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
 
-            // Search / Dropdown bar + QR button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Row(
-                children: [
-                  // Dropdown / Location Selector
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LocationSelectionPage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            topRight: Radius.circular(0),
-                            bottomLeft: Radius.circular(8),
-                            bottomRight: Radius.circular(0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Builder(
-                                    builder: (context) {
-                                      final selectedOutlet = context.watch<LocationProvider>().selectedOutlet;
-                                      return Text(
-                                        selectedOutlet?.name ?? 'Pilih Outlet',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _textDark,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.keyboard_arrow_down_outlined,
-                              color: _primaryRed,
-                              size: 22,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // const SizedBox(width: 10),
-
-                  // QR Scanner Button
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _softPink,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(0),
-                        topRight: Radius.circular(8),
-                        bottomLeft: Radius.circular(0),
-                        bottomRight: Radius.circular(8),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.qr_code_scanner_rounded,
-                      color: _primaryRed,
-                      size: 28,
-                    ),
+            // QR Scanner Button
+            Container(
+              width: 48,
+              decoration: BoxDecoration(
+                color: _softPink,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(8),
+                  bottomRight: Radius.circular(8),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+              ),
+              child: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: _primaryRed,
+                size: 24,
               ),
             ),
           ],
@@ -630,11 +579,6 @@ class _HomePageState extends State<HomePage> {
   // ─── FLAT PREMIUM SPECIAL PRODUCT CARD (KOPI KENANGAN STYLE) ──────
   Widget _buildProductCard(ProductModel product) {
     final formattedPrice = 'Rp${product.price.toInt()}';
-    final hasStrike =
-        product.strikePrice != null && product.strikePrice! > product.price;
-    final formattedStrike = hasStrike
-        ? 'Rp${product.strikePrice!.toInt()}'
-        : null;
 
     return Container(
       width: 130, // Narrow compact sizing
@@ -700,20 +644,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 5),
-
-                // Strike Price if discounted
-                if (formattedStrike != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      formattedStrike,
-                      style: GoogleFonts.poppins(
-                        fontSize: 8.5,
-                        color: _textGray,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                  ),
 
                 // Red Price pill (capsule style)
                 Container(
@@ -1281,5 +1211,103 @@ class _HomePageState extends State<HomePage> {
 
   void _showLoginBottomSheet(BuildContext context) {
     LoginBottomSheet.show(context);
+  }
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double statusBarHeight;
+  final Widget greetingWidget;
+  final Widget selectorWidget;
+
+  _StickyHeaderDelegate({
+    required this.statusBarHeight,
+    required this.greetingWidget,
+    required this.selectorWidget,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final double maxShrink = maxExtent - minExtent;
+    final double scrollPercentage = (shrinkOffset / maxShrink).clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: double.infinity,
+      height: maxExtent,
+      child: Stack(
+        children: [
+          // 1. Gradient background (fades out as we scroll)
+          Positioned.fill(
+            child: Opacity(
+              opacity: (1.0 - scrollPercentage).clamp(0.0, 1.0),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFE3F2FD), Colors.white],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // 2. White background (fades in as we scroll)
+          Positioned.fill(
+            child: Opacity(
+              opacity: scrollPercentage,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: scrollPercentage > 0.8
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Content
+          SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Opacity(
+                  opacity: (1.0 - scrollPercentage).clamp(0.0, 1.0),
+                  child: SizedBox(
+                    height: 52.0 * (1.0 - scrollPercentage),
+                    child: greetingWidget,
+                  ),
+                ),
+                SizedBox(height: 76.0, child: selectorWidget),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  double get maxExtent => 128.0 + statusBarHeight;
+
+  @override
+  double get minExtent => 76.0 + statusBarHeight;
+
+  @override
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
+    return oldDelegate.statusBarHeight != statusBarHeight ||
+        oldDelegate.greetingWidget != greetingWidget ||
+        oldDelegate.selectorWidget != selectorWidget;
   }
 }

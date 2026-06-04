@@ -5,6 +5,7 @@ import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:warrrung_app/providers/location_provider.dart';
 import 'package:warrrung_app/providers/home_provider.dart';
 import 'package:warrrung_app/location_selection_page.dart';
+import 'package:warrrung_app/data/models/category_model.dart';
 import 'package:warrrung_app/data/models/product_model.dart';
 import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
@@ -18,6 +19,7 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   String? _activeCategoryName;
+  String? _lastLoadedOutletId;
 
   // Colors
   static const Color _primaryRed = Color(0xFFC62828);
@@ -35,20 +37,28 @@ class _MenuPageState extends State<MenuPage> {
       return _buildNoLocationState(context);
     }
 
+    // Dynamic product loading based on selected outlet
+    final currentOutletId = locationProvider.selectedOutlet?.id;
+    if (currentOutletId != _lastLoadedOutletId) {
+      _lastLoadedOutletId = currentOutletId;
+      if (currentOutletId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.read<HomeProvider>().loadHomeData(outletId: currentOutletId);
+        });
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // ─── TOP SELECTOR BAR ───────────────────────────────────────────
-            _buildTopSelectorBar(context, locationProvider),
-            Divider(color: Colors.grey.shade200, height: 1, thickness: 1),
+            // ─── UNIFIED HEADER (Location Selector + Categories) ───────────
+            _buildUnifiedHeader(context, locationProvider, homeState),
 
             // ─── MENU CONTENT ────────────────────────────────────────────────
-            Expanded(
-              child: _buildMenuContent(homeState, homeProvider),
-            ),
+            Expanded(child: _buildMenuContent(homeState, homeProvider)),
           ],
         ),
       ),
@@ -143,71 +153,173 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
+  Widget _buildUnifiedHeader(
+    BuildContext context,
+    LocationProvider locationProvider,
+    HomeState homeState,
+  ) {
+    List<CategoryModel> categories = [];
+    if (homeState is HomeStateLoaded) {
+      categories = homeState.categories;
+      if (categories.isNotEmpty) {
+        _activeCategoryName ??= categories.first.name;
+        final productsMap = homeState.productsByCategory;
+        if (!productsMap.containsKey(_activeCategoryName)) {
+          _activeCategoryName = categories.first.name;
+        }
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTopSelectorBar(context, locationProvider),
+          if (categories.isNotEmpty) ...[
+            _buildCategoryTabList(categories),
+          ] else ...[
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTabList(List<CategoryModel> categories) {
+    return Container(
+      height: 48,
+      color: Colors.white,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final bool isActive = _activeCategoryName == category.name;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _activeCategoryName = category.name;
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 20),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    category.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                      color: isActive
+                          ? const Color(0xFF8D6E63)
+                          : Colors.black87,
+                    ),
+                  ),
+                  if (isActive) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 28,
+                      height: 2.5,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8D6E63),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildTopSelectorBar(BuildContext context, LocationProvider provider) {
     final outlet = provider.selectedOutlet!;
 
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          const Icon(Icons.store_rounded, color: _primaryRed, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Outlet Anda',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: _textGray,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  outlet.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: _textDark,
-                  ),
-                ),
-              ],
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LocationSelectionPage(),
           ),
-          const SizedBox(width: 10),
-
-          // Change button
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LocationSelectionPage(),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                'Ubah',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF00897B), // Teal
-                ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    outlet.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    outlet.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(fontSize: 11, color: _textGray),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1F1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.keyboard_arrow_down,
+                color: Color(0xFFC62828),
+                size: 16,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -228,12 +340,23 @@ class _MenuPageState extends State<MenuPage> {
           children: [
             Text(
               'Gagal memuat menu',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: _textDark),
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                color: _textDark,
+              ),
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: homeProvider.loadHomeData,
-              child: const Text('Coba Lagi', style: TextStyle(color: _primaryRed)),
+              onPressed: () {
+                final selectedOutlet = context
+                    .read<LocationProvider>()
+                    .selectedOutlet;
+                homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+              },
+              child: const Text(
+                'Coba Lagi',
+                style: TextStyle(color: _primaryRed),
+              ),
             ),
           ],
         ),
@@ -258,217 +381,166 @@ class _MenuPageState extends State<MenuPage> {
 
       final activeProducts = productsMap[_activeCategoryName] ?? [];
 
-      return Column(
-        children: [
-          // ─── HORIZONTAL CATEGORIES TAB LIST ──────────────────────────────
-          Container(
-            height: 48,
-            color: Colors.white,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: categories.length,
+      return activeProducts.isEmpty
+          ? Center(
+              child: Text(
+                'Menu belum tersedia di kategori ini.',
+                style: GoogleFonts.poppins(color: _textGray, fontSize: 13),
+              ),
+            )
+          : GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.70,
+              ),
+              itemCount: activeProducts.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
-                final bool isActive = _activeCategoryName == category.name;
-
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _activeCategoryName = category.name;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: isActive ? _primaryRed : const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      category.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                        color: isActive ? Colors.white : _textGray,
-                      ),
-                    ),
-                  ),
-                );
+                final product = activeProducts[index];
+                return _buildProductCardGrid(context, product);
               },
-            ),
-          ),
-
-          // ─── PRODUCTS LIST VIEW ──────────────────────────────────────────
-          Expanded(
-            child: activeProducts.isEmpty
-                ? Center(
-                    child: Text(
-                      'Menu belum tersedia di kategori ini.',
-                      style: GoogleFonts.poppins(color: _textGray, fontSize: 13),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: activeProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = activeProducts[index];
-                      return _buildProductCard(context, product);
-                    },
-                  ),
-          ),
-        ],
-      );
+            );
     }
 
     return const SizedBox.shrink();
   }
 
-  Widget _buildProductCard(BuildContext context, ProductModel product) {
+  Widget _buildProductCardGrid(BuildContext context, ProductModel product) {
     final authProvider = context.watch<AuthProvider>();
 
     // Dynamic price formatting
-    final String formattedPrice = 'Rp ${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
-    final String? formattedStrikePrice = product.strikePrice != null && product.strikePrice! > 0
-        ? 'Rp ${product.strikePrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
+    final String formattedPrice =
+        'Rp${product.price.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+
+    final String? formattedStrikePrice =
+        product.strikePrice != null && product.strikePrice! > 0
+        ? 'Rp${product.strikePrice!.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
         : null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Left: Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 80,
-              height: 80,
-              child: product.imageUrl.isNotEmpty
-                  ? Image.network(
-                      product.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey.shade100,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.fastfood, color: Colors.grey, size: 30),
-                      ),
-                    )
-                  : Container(
-                      color: Colors.grey.shade100,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.fastfood, color: Colors.grey, size: 30),
-                    ),
+    final bool isPromo = formattedStrikePrice != null;
+
+    return GestureDetector(
+      onTap: () {
+        if (!authProvider.isAuthenticated) {
+          LoginBottomSheet.show(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${product.name}" ditambahkan ke keranjang.'),
+              duration: const Duration(seconds: 1),
             ),
-          ),
-          const SizedBox(width: 14),
-
-          // Middle: Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: _textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: _textGray,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Prices
-                Row(
-                  children: [
-                    Text(
-                      formattedPrice,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryRed,
-                      ),
-                    ),
-                    if (formattedStrikePrice != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        formattedStrikePrice,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.grey.shade400,
+          );
+        }
+      },
+      child: Container(
+        decoration: const BoxDecoration(color: Colors.transparent),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Center Product Image
+            Expanded(
+              child: Center(
+                child: product.imageUrl.isNotEmpty
+                    ? Image.network(
+                        product.imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Center(
+                              child: Icon(
+                                Icons.fastfood,
+                                color: Colors.grey,
+                                size: 40,
+                              ),
+                            ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.fastfood,
+                          color: Colors.grey,
+                          size: 40,
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Right: Add Button
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Container(
-              margin: const EdgeInsets.only(top: 48),
-              child: InkWell(
-                onTap: () {
-                  if (!authProvider.isAuthenticated) {
-                    LoginBottomSheet.show(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('"${product.name}" ditambahkan ke keranjang.'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
-                  }
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: _primaryRed,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+
+            // Product Name (max 2 lines)
+            Text(
+              product.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: _textDark,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // Prices
+            if (isPromo) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_offer,
+                          color: Color(0xFFC62828),
+                          size: 11,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          formattedPrice,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFC62828),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      formattedStrikePrice,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Text(
+                formattedPrice,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _textDark,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

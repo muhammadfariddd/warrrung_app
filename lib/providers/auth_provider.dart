@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:warrrung_app/services/pocketbase_service.dart';
 
 /// State of the authentication flow inside the bottom sheet.
 enum AuthSheetStage {
-  initial,    // WhatsApp Quick Login button + Metode Lainnya
   phoneInput, // Phone number input (+62) + Google Login button
   otpInput,   // OTP code verification
 }
@@ -15,6 +15,11 @@ enum AuthSheetStage {
 /// and custom WhatsApp OTP verification flow.
 class AuthProvider extends ChangeNotifier {
   final PocketBaseService _pbService;
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: '507863340115-uk6arcujpl79k1hfd2ad2f74m11ut08j.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -41,9 +46,10 @@ class AuthProvider extends ChangeNotifier {
   /// 
   /// Sends the formatted [phoneNumber] to PocketBase OTP endpoint.
   Future<bool> requestOtp(String phoneNumber) async {
+    final cleanPhoneNumber = phoneNumber.replaceAll(RegExp(r'\s+'), '');
     _isLoading = true;
     _errorMessage = null;
-    _pendingPhoneNumber = phoneNumber;
+    _pendingPhoneNumber = cleanPhoneNumber;
     notifyListeners();
 
     try {
@@ -52,7 +58,7 @@ class AuthProvider extends ChangeNotifier {
       await _pbService.client.send(
         '/api/warrierung/request-otp',
         method: 'POST',
-        body: {'phone_number': phoneNumber},
+        body: {'phone_number': cleanPhoneNumber},
       );
       
       _isLoading = false;
@@ -105,8 +111,8 @@ class AuthProvider extends ChangeNotifier {
       );
 
       // Extract token and user record from response
-      final token = response.data['token'] as String;
-      final recordJson = response.data['record'] as Map<String, dynamic>;
+      final token = response['token'] as String;
+      final recordJson = response['record'] as Map<String, dynamic>;
       final userRecord = RecordModel.fromJson(recordJson);
 
       // Save to auth store
@@ -159,13 +165,34 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Call standard PocketBase OAuth2 flow
-      final authData = await _pbService.client.collection('users').authWithOAuth2('google', (url) async {
-        // In real Android/iOS app, you would open this url in webview/browser.
-        // For testing, we mock user registration/login.
-        // Let's print out the OAuth url.
-        debugPrint('OAuth2 URL: $url');
-      });
+      // Sign out from any previous Google Sign-In session to ensure account chooser is shown
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the login
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      final serverAuthCode = googleUser.serverAuthCode;
+      if (serverAuthCode == null || serverAuthCode.isEmpty) {
+        throw Exception('Gagal mendapatkan server authorization code dari Google.');
+      }
+
+      final redirectUrl = 'http://localhost:8090/api/oauth2-redirect';
+      debugPrint('Exchanging Google serverAuthCode: $serverAuthCode with redirectUrl: $redirectUrl');
+
+      // Exchange the serverAuthCode with PocketBase
+      final authData = await _pbService.client.collection('users').authWithOAuth2Code(
+        'google',
+        serverAuthCode,
+        '', // codeVerifier is empty for manual serverAuthCode flow
+        redirectUrl,
+      );
 
       if (authData.token.isNotEmpty) {
         _isLoading = false;
@@ -178,7 +205,7 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       // Fallback: Create mock google session for testing
-      debugPrint('Google OAuth2 failed or not configured. Simulating Google login.');
+      debugPrint('Google OAuth2 failed: $e. Simulating Google login for local testing.');
       final mockRecord = RecordModel.fromJson({
         'id': 'mock_google_456',
         'collectionId': 'users',
@@ -204,6 +231,13 @@ class AuthProvider extends ChangeNotifier {
 
   /// Reset error state.
   void clearErrors() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Reset loading and error states.
+  void clearLoading() {
+    _isLoading = false;
     _errorMessage = null;
     notifyListeners();
   }

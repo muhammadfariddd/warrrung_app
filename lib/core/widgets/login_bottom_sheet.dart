@@ -29,7 +29,7 @@ class LoginBottomSheet extends StatefulWidget {
 }
 
 class _LoginBottomSheetState extends State<LoginBottomSheet> {
-  AuthSheetStage _stage = AuthSheetStage.initial;
+  AuthSheetStage _stage = AuthSheetStage.phoneInput;
   final TextEditingController _phoneController = TextEditingController();
   bool _isPhoneValid = false;
 
@@ -39,6 +39,14 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
     (_) => TextEditingController(),
   );
   final List<FocusNode> _otpFocusNodes = List.generate(4, (_) => FocusNode());
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().clearLoading();
+    });
+  }
 
   @override
   void dispose() {
@@ -59,16 +67,12 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
 
     // Using PopScope for modern Flutter versions instead of deprecated WillPopScope
     return PopScope(
-      canPop: _stage == AuthSheetStage.initial,
+      canPop: _stage == AuthSheetStage.phoneInput,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_stage == AuthSheetStage.otpInput) {
           setState(() {
             _stage = AuthSheetStage.phoneInput;
-          });
-        } else if (_stage == AuthSheetStage.phoneInput) {
-          setState(() {
-            _stage = AuthSheetStage.initial;
           });
         }
       },
@@ -130,8 +134,6 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
     }
 
     switch (_stage) {
-      case AuthSheetStage.initial:
-        return _buildInitialStage(authProvider);
       case AuthSheetStage.phoneInput:
         return _buildPhoneInputStage(authProvider);
       case AuthSheetStage.otpInput:
@@ -139,170 +141,12 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
     }
   }
 
-  // ─── STAGE 1: INITIAL WHATSAPP ENTER SHEET ──────────────────────────
-  Widget _buildInitialStage(AuthProvider authProvider) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Top row with "Metode Lainnya >" button on the right
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _stage = AuthSheetStage.phoneInput;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(
-                    color: const Color(0xFF8C5E3C),
-                    width: 1.5,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Metode Lainnya',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8C5E3C),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: Color(0xFF8C5E3C),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Green WhatsApp Quick Sign-In Button
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _stage = AuthSheetStage.phoneInput;
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF25D366),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const WhatsAppIcon(size: 22, color: Colors.white),
-                const SizedBox(width: 10),
-                Text(
-                  'Masuk / Daftar Instan',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Info subtext
-        Align(
-          alignment: Alignment.center,
-          child: RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: const Color(0xFF757575),
-                height: 1.5,
-              ),
-              children: [
-                TextSpan(
-                  text: 'BARU! ',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1A1A1A),
-                  ),
-                ),
-                const TextSpan(
-                  text:
-                      'Masuk atau Daftar instan dengan WhatsApp—\ntanpa ribet OTP!',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-      ],
-    );
-  }
-
-  // ─── STAGE 2: PHONE INPUT + GOOGLE AUTH SHEET ───────────────────────
+  // ─── STAGE 1: PHONE INPUT + GOOGLE AUTH SHEET ───────────────────────
   Widget _buildPhoneInputStage(AuthProvider authProvider) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Back Button "< WhatsApp Masuk / Daftar Instan" in top-left
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _stage = AuthSheetStage.initial;
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFF8C5E3C), width: 1.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.chevron_left_rounded,
-                  size: 16,
-                  color: Color(0xFF8C5E3C),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'WhatsApp Masuk / Daftar Instan',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF8C5E3C),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
 
         // Error message if any
         if (authProvider.errorMessage != null) ...[
