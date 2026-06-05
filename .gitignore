@@ -68,3 +68,7 @@ tunnel.js
 localtunnel.log
 serveo.log
 pinggy.log
+
+# WhatsApp Gateway Baileys authentication & sessions
+whatsapp_gateway/auth_info_baileys/
+whatsapp_gateway/*.log

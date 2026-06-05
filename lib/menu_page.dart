@@ -9,6 +9,7 @@ import 'package:warrrung_app/data/models/category_model.dart';
 import 'package:warrrung_app/data/models/product_model.dart';
 import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
+import 'package:warrrung_app/product_detail_page.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -426,10 +427,10 @@ class _MenuPageState extends State<MenuPage> {
         if (!authProvider.isAuthenticated) {
           LoginBottomSheet.show(context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('"${product.name}" ditambahkan ke keranjang.'),
-              duration: const Duration(seconds: 1),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(product: product),
             ),
           );
         }
