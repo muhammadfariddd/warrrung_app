@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:warrrung_app/data/models/product_model.dart';
+import 'package:warrrung_app/data/models/cart_item_model.dart';
+import 'package:warrrung_app/providers/cart_provider.dart';
+import 'package:warrrung_app/order_confirmation_page.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final ProductModel product;
+  final CartItemModel? existingCartItem;
 
-  const ProductDetailPage({super.key, required this.product});
+  const ProductDetailPage({
+    super.key,
+    required this.product,
+    this.existingCartItem,
+  });
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -66,6 +75,43 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+
+    final existing = widget.existingCartItem;
+    if (existing != null) {
+      _quantity = existing.quantity;
+      _notesController.text = existing.notes;
+
+      if (_isBeverage) {
+        // Parse beverage customizations
+        for (var option in existing.customizations) {
+          if (option == 'Ice' || option == 'Hot') {
+            _temperature = option;
+          } else if (option == 'Regular' || option == 'Large') {
+            _beverageSize = option;
+          } else if (option == 'Normal Sugar' || option == 'Less Sugar' || option == 'No Sugar') {
+            _sugarLevel = option;
+          } else if (option == 'Normal Ice' || option == 'Less Ice' || option == 'No Ice') {
+            _iceLevel = option;
+          } else if (_beverageToppings.containsKey(option)) {
+            _beverageToppings[option] = true;
+          }
+        }
+      } else {
+        // Parse food customizations
+        for (var option in existing.customizations) {
+          if (option.startsWith('Level ')) {
+            final levelStr = option.replaceFirst('Level ', '');
+            _spicinessLevel = int.tryParse(levelStr) ?? 1;
+          } else if (_carbPrices.containsKey(option)) {
+            _carbOption = option;
+          } else if (option.startsWith('Porsi ')) {
+            _portionSize = option.replaceFirst('Porsi ', '');
+          } else if (_extraSides.containsKey(option)) {
+            _extraSides[option] = true;
+          }
+        }
+      }
+    }
   }
 
   void _onScroll() {
@@ -481,36 +527,55 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         height: 48,
                         child: ElevatedButton(
                           onPressed: () {
-                            final List<String> details = [];
+                            final cartProvider = context.read<CartProvider>();
+                            final List<String> customizations = [];
                             if (_isBeverage) {
-                              details.add(_temperature);
-                              details.add(_beverageSize);
-                              details.add(_sugarLevel);
-                              details.add(_iceLevel);
+                              customizations.add(_temperature);
+                              customizations.add(_beverageSize);
+                              customizations.add(_sugarLevel);
+                              customizations.add(_iceLevel);
                               _beverageToppings.forEach((key, value) {
-                                if (value) details.add(key);
+                                if (value) customizations.add(key);
                               });
                             } else {
-                              details.add('Level $_spicinessLevel');
-                              details.add(_carbOption);
-                              details.add('Porsi $_portionSize');
+                              customizations.add('Level $_spicinessLevel');
+                              customizations.add(_carbOption);
+                              customizations.add('Porsi $_portionSize');
                               _extraSides.forEach((key, value) {
-                                if (value) details.add(key);
+                                if (value) customizations.add(key);
                               });
                             }
-                            if (_notesController.text.isNotEmpty) {
-                              details.add('Catatan: ${_notesController.text}');
-                            }
 
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '"${widget.product.name}" ($formattedTotal) dimasukkan ke keranjang.\nDetail: ${details.join(', ')}',
+                            if (widget.existingCartItem != null) {
+                              // Mode Edit: Update item
+                              final updatedItem = widget.existingCartItem!.copyWith(
+                                quantity: _quantity,
+                                customizations: customizations,
+                                notes: _notesController.text,
+                                singleItemPrice: _calculateSingleItemPrice,
+                              );
+                              cartProvider.updateItem(updatedItem);
+                              Navigator.pop(context); // Kembali ke Halaman Konfirmasi Pesanan
+                            } else {
+                              // Mode Baru: Add item
+                              final newItem = CartItemModel(
+                                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                product: widget.product,
+                                quantity: _quantity,
+                                customizations: customizations,
+                                notes: _notesController.text,
+                                singleItemPrice: _calculateSingleItemPrice,
+                              );
+                              cartProvider.addItem(newItem);
+                              
+                              // Arahkan ke Checkout page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const OrderConfirmationPage(),
                                 ),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryRed,

@@ -8,6 +8,8 @@ import 'package:warrrung_app/splash_screen.dart';
 
 import 'package:warrrung_app/data/repositories/outlet_repository.dart';
 import 'package:warrrung_app/providers/location_provider.dart';
+import 'package:warrrung_app/providers/cart_provider.dart';
+
 
 void main() {
   final pbService = PocketBaseService();
@@ -28,6 +30,9 @@ void main() {
         ),
         ChangeNotifierProvider<LocationProvider>(
           create: (_) => LocationProvider(outletRepository),
+        ),
+        ChangeNotifierProvider<CartProvider>(
+          create: (_) => CartProvider(),
         ),
       ],
       child: const SplashScreenApp(),

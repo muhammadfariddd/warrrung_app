@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:warrrung_app/core/widgets/custom_icons.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
 
@@ -177,6 +178,37 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
               ],
             ),
           ),
+          if (authProvider.errorMessage!.contains('Telegram') || authProvider.errorMessage!.contains('telegram')) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final uri = Uri.parse('https://t.me/warrrung_bot');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                label: Text(
+                  'Hubungkan Telegram',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF29B6F6), // Telegram blue
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
         ],
 
@@ -395,7 +427,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
 
         // Subtitle containing phone number
         Text(
-          'Masukkan 4 digit kode OTP yang dikirim melalui WhatsApp ke +62 ${_phoneController.text.trim()}',
+          'Masukkan 4 digit kode OTP yang dikirim melalui Telegram ke +62 ${_phoneController.text.trim()}\n(Gunakan kode default 1234 jika belum terhubung)',
           style: GoogleFonts.poppins(
             fontSize: 12.5,
             color: const Color(0xFF757575),

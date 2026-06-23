@@ -67,7 +67,7 @@ class AuthProvider extends ChangeNotifier {
     } on ClientException catch (e) {
       // Check if it's 404/403 (e.g. backend endpoint not created yet).
       // If so, fall back to mock successful OTP generation for local test run!
-      if (e.statusCode == 404 || e.statusCode == 0) {
+      if ((e.statusCode == 404 && e.response['message'] == 'Not Found.') || e.statusCode == 0) {
         debugPrint('PocketBase OTP endpoint not found/accessible. Using local mock OTP for testing.');
         _isLoading = false;
         notifyListeners();

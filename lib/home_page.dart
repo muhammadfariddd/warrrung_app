@@ -8,6 +8,7 @@ import 'package:warrrung_app/providers/auth_provider.dart';
 import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/location_provider.dart';
 import 'package:warrrung_app/location_selection_page.dart';
+import 'package:warrrung_app/product_detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,6 +21,7 @@ class _HomePageState extends State<HomePage> {
   int _currentBannerIndex = 0;
   final PageController _bannerController = PageController();
   Timer? _bannerTimer;
+  String? _lastSelectedOutletId;
 
   // Design color tokens
   static const Color _primaryRed = Color(0xFFC62828);
@@ -28,6 +30,22 @@ class _HomePageState extends State<HomePage> {
   static const Color _textDark = Color(0xFF1A1A1A);
   static const Color _textGray = Color(0xFF757575);
   static const Color _greenAccent = Color(0xFF2E7D32);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locationProvider = Provider.of<LocationProvider>(context);
+    final selectedOutletId = locationProvider.selectedOutlet?.id;
+    if (_lastSelectedOutletId != selectedOutletId) {
+      _lastSelectedOutletId = selectedOutletId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Provider.of<HomeProvider>(
+          context,
+          listen: false,
+        ).loadHomeData(outletId: selectedOutletId);
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -178,108 +196,68 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Dropdown / Location Selector
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LocationSelectionPage(),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      bottomLeft: Radius.circular(8),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocationSelectionPage(),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      selectedOutlet?.name ?? 'Pilih Outlet',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _textDark,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              selectedOutlet?.name ?? 'Pilih Outlet',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: _textDark,
-                              ),
-                            ),
-                            if (selectedOutlet != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                selectedOutlet.address,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  color: _textGray,
-                                ),
-                              ),
-                            ],
-                          ],
+                    ),
+                    if (selectedOutlet != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        selectedOutlet.address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: _textGray,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.keyboard_arrow_down_outlined,
-                        color: _primaryRed,
-                        size: 22,
-                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ),
-
-            // QR Scanner Button
-            Container(
-              width: 48,
-              decoration: BoxDecoration(
-                color: _softPink,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(8),
-                  bottomRight: Radius.circular(8),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.qr_code_scanner_rounded,
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
                 color: _primaryRed,
-                size: 24,
+                size: 22,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -420,26 +398,11 @@ class _HomePageState extends State<HomePage> {
   Widget _buildBannerCard(int index) {
     final bannerData = [
       {
-        'title': 'Soto Ayam Pilihan\nwaRRRung',
-        'subtitle': 'Diskon Akhir Pekan\nUp To 50%',
-        'footer': 'Hanya di waRRRung App',
         'image': 'images/soto_ayam_banner.png',
         'bgColor': const Color(0xFFFFF8E1),
       },
-      {
-        'title': 'Nasi Goreng Spesial\nwaRRRung',
-        'subtitle': 'Beli 2 Gratis 1\nSetiap Hari',
-        'footer': 'Promo Terbatas!',
-        'image': 'images/nasi_goreng.png',
-        'bgColor': const Color(0xFFFFEBEE),
-      },
-      {
-        'title': 'Mie Ayam Legend\nwaRRRung',
-        'subtitle': 'Cashback 30%\nPakai waRRRung Pay',
-        'footer': 'Pesan Sekarang',
-        'image': 'images/mie_ayam.png',
-        'bgColor': const Color(0xFFFFF3E0),
-      },
+      {'image': 'images/nasi_goreng.png', 'bgColor': const Color(0xFFFFEBEE)},
+      {'image': 'images/mie_ayam.png', 'bgColor': const Color(0xFFFFF3E0)},
     ];
 
     final data = bannerData[index];
@@ -458,77 +421,14 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        child: Stack(
-          children: [
-            // Text content
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 0, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data['title'] as String,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: _textDark,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _primaryRed,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      data['subtitle'] as String,
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Icon(Icons.favorite, size: 14, color: _primaryRed),
-                      const SizedBox(width: 4),
-                      Text(
-                        data['footer'] as String,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          color: _textGray,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // Food image
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  data['image'] as String,
-                  width: 140,
-                  height: 140,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            data['image'] as String,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
         ),
       ),
     );
@@ -580,112 +480,142 @@ class _HomePageState extends State<HomePage> {
   Widget _buildProductCard(ProductModel product) {
     final formattedPrice = 'Rp${product.price.toInt()}';
 
-    return Container(
-      width: 130, // Narrow compact sizing
-      margin: const EdgeInsets.only(right: 12),
-      color: Colors.transparent, // Completely flat, no border, no shadow
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product image — centered in a clean white box without border or shadow
-          Container(
-            height: 108,
-            width: double.infinity,
-            color: Colors.transparent,
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
-            child: product.imageUrl.isNotEmpty
-                ? Image.network(
-                    product.imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (ctx, err, st) => const Center(
+    return GestureDetector(
+      onTap: () {
+        final locationProvider = context.read<LocationProvider>();
+        final authProvider = context.read<AuthProvider>();
+
+        if (locationProvider.selectedOutlet == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Silakan pilih outlet terlebih dahulu.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocationSelectionPage(),
+            ),
+          );
+        } else if (!authProvider.isAuthenticated) {
+          LoginBottomSheet.show(context);
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(product: product),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: 130, // Narrow compact sizing
+        margin: const EdgeInsets.only(right: 12),
+        color: Colors.transparent, // Completely flat, no border, no shadow
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Product image — centered in a clean white box without border or shadow
+            Container(
+              height: 108,
+              width: double.infinity,
+              color: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+              child: product.imageUrl.isNotEmpty
+                  ? Image.network(
+                      product.imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (ctx, err, st) => const Center(
+                        child: Icon(
+                          Icons.restaurant_rounded,
+                          color: _primaryRed,
+                          size: 30,
+                        ),
+                      ),
+                      loadingBuilder: (ctx, child, prog) {
+                        if (prog == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _primaryRed,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : const Center(
                       child: Icon(
                         Icons.restaurant_rounded,
                         color: _primaryRed,
                         size: 30,
                       ),
                     ),
-                    loadingBuilder: (ctx, child, prog) {
-                      if (prog == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _primaryRed,
-                          ),
-                        ),
-                      );
-                    },
-                  )
-                : const Center(
-                    child: Icon(
-                      Icons.restaurant_rounded,
-                      color: _primaryRed,
-                      size: 30,
+            ),
+
+            // Product details below the image
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product name
+                  Text(
+                    product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _textDark,
+                      height: 1.15,
                     ),
                   ),
-          ),
+                  const SizedBox(height: 5),
 
-          // Product details below the image
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Product name
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _textDark,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 5),
-
-                // Red Price pill (capsule style)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _softPink,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(1.2),
-                        decoration: const BoxDecoration(
-                          color: _primaryRed,
-                          shape: BoxShape.circle,
+                  // Red Price pill (capsule style)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _softPink,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(1.2),
+                          decoration: const BoxDecoration(
+                            color: _primaryRed,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.percent_rounded,
+                            size: 8,
+                            color: Colors.white,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.percent_rounded,
-                          size: 8,
-                          color: Colors.white,
+                        const SizedBox(width: 3.5),
+                        Text(
+                          formattedPrice,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _primaryRed,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 3.5),
-                      Text(
-                        formattedPrice,
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: _primaryRed,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1092,75 +1022,105 @@ class _HomePageState extends State<HomePage> {
   Widget _buildGridProductCard(ProductModel product) {
     final formattedPrice = 'Rp${product.price.toInt()}';
 
-    return Container(
-      color: Colors.transparent, // Completely flat
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Centered Isolated Image
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.transparent,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: product.imageUrl.isNotEmpty
-                  ? Image.network(
-                      product.imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (ctx, err, st) => const Center(
+    return GestureDetector(
+      onTap: () {
+        final locationProvider = context.read<LocationProvider>();
+        final authProvider = context.read<AuthProvider>();
+
+        if (locationProvider.selectedOutlet == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Silakan pilih outlet terlebih dahulu.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocationSelectionPage(),
+            ),
+          );
+        } else if (!authProvider.isAuthenticated) {
+          LoginBottomSheet.show(context);
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(product: product),
+            ),
+          );
+        }
+      },
+      child: Container(
+        color: Colors.transparent, // Completely flat
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Centered Isolated Image
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: Colors.transparent,
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: product.imageUrl.isNotEmpty
+                    ? Image.network(
+                        product.imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (ctx, err, st) => const Center(
+                          child: Icon(
+                            Icons.restaurant_rounded,
+                            color: _primaryRed,
+                            size: 36,
+                          ),
+                        ),
+                        loadingBuilder: (ctx, child, prog) {
+                          if (prog == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _primaryRed,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : const Center(
                         child: Icon(
                           Icons.restaurant_rounded,
                           color: _primaryRed,
                           size: 36,
                         ),
                       ),
-                      loadingBuilder: (ctx, child, prog) {
-                        if (prog == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              _primaryRed,
-                            ),
-                          ),
-                        );
-                      },
-                    )
-                  : const Center(
-                      child: Icon(
-                        Icons.restaurant_rounded,
-                        color: _primaryRed,
-                        size: 36,
-                      ),
-                    ),
+              ),
             ),
-          ),
-          // const SizedBox(height: 8),
+            // const SizedBox(height: 8),
 
-          // Product name
-          Text(
-            product.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              color: _textDark,
-              height: 1.2,
+            // Product name
+            Text(
+              product.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: _textDark,
+                height: 1.2,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
+            const SizedBox(height: 6),
 
-          // Simple Price Text (No Pill, exactly like Kopi Kenangan Makanan list)
-          Text(
-            formattedPrice,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _textDark.withValues(alpha: 0.9),
+            // Simple Price Text (No Pill, exactly like Kopi Kenangan Makanan list)
+            Text(
+              formattedPrice,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _textDark.withValues(alpha: 0.9),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

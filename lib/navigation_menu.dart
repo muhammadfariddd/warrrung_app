@@ -7,6 +7,7 @@ import 'package:warrrung_app/location_selection_page.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
 import 'menu_page.dart';
+import 'package:warrrung_app/pesanan_tab_screen.dart';
 
 class NavigationMenu extends StatelessWidget {
   const NavigationMenu({super.key});
@@ -127,7 +128,12 @@ class NavigationMenu extends StatelessWidget {
 class NavigationController extends GetxController {
   final Rx<int> selectedIndex = 0.obs;
 
-  final screens = [const HomePage(), const MenuPage(), Container(), const ProfilePage()];
+  final screens = [
+    const HomePage(),
+    const MenuPage(),
+    const PesananTabScreen(),
+    const ProfilePage(),
+  ];
 }
 
 // class NavigationMenu extends StatefulWidget {

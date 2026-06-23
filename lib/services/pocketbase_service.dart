@@ -25,9 +25,8 @@ class PocketBaseService {
 
   // Resolve local development URL dynamically based on current platform
   static String get _localUrl {
-    // Gunakan localhost dengan ADB reverse port forwarding secara otomatis saat build/run
-    // Menghilangkan kebutuhan untuk menjalankan terowongan (tunnel) publik
-    return 'http://127.0.0.1:8090';
+    // Menggunakan ngrok static domain untuk koneksi nirkabel permanen
+    return 'https://leotard-lid-easily.ngrok-free.dev';
   }
 
   /// Automatically resolved base URL based on build configuration.

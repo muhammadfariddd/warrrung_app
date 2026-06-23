@@ -47,11 +47,12 @@ app.*.map.json
 # Docs
 POCKETBASE_INTEGRATION.md
 
-# PocketBase local server files (jika ditaruh di dalam folder proyek)
-pocketbase
-pocketbase.exe
-pb_data/
-pb_public/
+# PocketBase local server files
+/pocketbase
+/pocketbase.exe
+**/pb_data/
+**/pb_public/
+!/pocketbase/
 # Berkas data impor sementara
 outlets.json
 
@@ -65,6 +66,7 @@ cloudflared
 
 # Temporary tunnel scripts
 tunnel.js
+tunnel_url.txt
 localtunnel.log
 serveo.log
 pinggy.log
@@ -72,3 +74,6 @@ pinggy.log
 # WhatsApp Gateway Baileys authentication & sessions
 whatsapp_gateway/auth_info_baileys/
 whatsapp_gateway/*.log
+
+# PocketBase local credentials (secrets.json)
+pocketbase/pb_hooks/secrets.json
