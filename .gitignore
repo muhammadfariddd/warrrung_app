@@ -77,3 +77,6 @@ whatsapp_gateway/*.log
 
 # PocketBase local credentials (secrets.json)
 pocketbase/pb_hooks/secrets.json
+
+# Chat history imports
+Saya mengalami error*.md
