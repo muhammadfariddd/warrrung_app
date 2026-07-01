@@ -65,7 +65,12 @@ routerAdd("POST", "/api/warrierung/request-otp", (e) => {
         return output;
     }
 
-    const data = e.requestInfo().body || {};
+    const data = {
+        phone_number: ""
+    };
+    try {
+        e.bindBody(data);
+    } catch (err) {}
     let phoneNumber = data.phone_number;
 
     if (!phoneNumber) {
@@ -417,7 +422,13 @@ routerAdd("POST", "/api/warrierung/verify-otp", (e) => {
         return output;
     }
 
-    const data = e.requestInfo().body || {};
+    const data = {
+        phone_number: "",
+        otp: ""
+    };
+    try {
+        e.bindBody(data);
+    } catch (err) {}
     let phoneNumber = data.phone_number;
     const otpCode = data.otp;
 

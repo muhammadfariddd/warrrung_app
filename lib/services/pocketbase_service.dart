@@ -25,8 +25,8 @@ class PocketBaseService {
 
   // Resolve local development URL dynamically based on current platform
   static String get _localUrl {
-    // Menggunakan ngrok static domain untuk koneksi nirkabel permanen
-    return 'https://leotard-lid-easily.ngrok-free.dev';
+    // Production URL
+    return 'https://warrrungapp-production.up.railway.app';
   }
 
   /// Automatically resolved base URL based on build configuration.

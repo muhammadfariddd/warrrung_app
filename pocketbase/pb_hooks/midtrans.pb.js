@@ -56,7 +56,10 @@ routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
     }
 
     try {
-        const data = e.requestInfo().body || {};
+        const data = {};
+        try {
+            e.bindBody(data);
+        } catch (err) {}
         const userId = data.user_id;
         const outletId = data.outlet_id;
         const orderType = data.order_type; // 'delivery' atau 'pickup'
@@ -333,7 +336,10 @@ routerAdd("POST", "/api/warrierung/midtrans/webhook", (e) => {
     const MIDTRANS_SERVER_KEY = getSecret("MIDTRANS_SERVER_KEY", "your_midtrans_server_key_here");
 
     try {
-        const body = e.requestInfo().body || {};
+        const body = {};
+        try {
+            e.bindBody(body);
+        } catch (err) {}
         const orderId = body.order_id;
         const statusCode = body.status_code;
         const grossAmount = body.gross_amount;
