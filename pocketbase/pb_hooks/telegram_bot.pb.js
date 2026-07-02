@@ -32,10 +32,7 @@ routerAdd("POST", "/api/telegram-webhook", (e) => {
     }
 
     try {
-        const update = {};
-        try {
-            e.bindBody(update);
-        } catch (err) {}
+        const update = e.requestInfo().body || {};
         const message = update.message;
 
         if (!message) {

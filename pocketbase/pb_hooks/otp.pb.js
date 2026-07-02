@@ -8,28 +8,24 @@
 // OPSI E: LOCAL_GATEWAY (Node.js Gateway berjalan lokal di port 3000 menggunakan Baileys)
 
 // Helper untuk mengambil secret dari env atau secrets.json
-function getSecret(key, defaultValue) {
-    // 1. Coba dari environment variable
-    let val = $os.getenv(key);
-    if (val) return val;
-
-    // 2. Coba dari pb_hooks/secrets.json
-    try {
-        const secrets = require(`${__hooks}/secrets.json`);
-        if (secrets && secrets[key]) {
-            return secrets[key];
-        }
-    } catch (e) {
-        // file tidak ditemukan atau error parsing
-    }
-
-    return defaultValue;
-}
+// (Didefinisikan secara lokal di dalam callback handler untuk kepastian scope)
 
 // ─── CUSTOM API ENDPOINTS ───────────────────────────────────────────────────────
 
 // 1. ENDPOINT REQUEST OTP (POST /api/warrierung/request-otp)
 routerAdd("POST", "/api/warrierung/request-otp", (e) => {
+    function getSecret(key, defaultValue) {
+        let val = $os.getenv(key);
+        if (val) return val;
+        try {
+            const secrets = require(`${__hooks}/secrets.json`);
+            if (secrets && secrets[key]) {
+                return secrets[key];
+            }
+        } catch (e) {}
+        return defaultValue;
+    }
+
     // ─── KONFIGURASI backend ───
     const ACTIVE_OPTION = 'TELEGRAM'; // Pilihan: 'TELEGRAM', 'LOCAL_MOCK', 'TWILIO', 'FONNTE', 'META_WABA', 'LOCAL_GATEWAY'
 
@@ -65,12 +61,7 @@ routerAdd("POST", "/api/warrierung/request-otp", (e) => {
         return output;
     }
 
-    const data = {
-        phone_number: ""
-    };
-    try {
-        e.bindBody(data);
-    } catch (err) {}
+    const data = e.requestInfo().body || {};
     let phoneNumber = data.phone_number;
 
     if (!phoneNumber) {
@@ -391,6 +382,18 @@ routerAdd("POST", "/api/warrierung/request-otp", (e) => {
 
 // 2. ENDPOINT VERIFY OTP (POST /api/warrierung/verify-otp)
 routerAdd("POST", "/api/warrierung/verify-otp", (e) => {
+    function getSecret(key, defaultValue) {
+        let val = $os.getenv(key);
+        if (val) return val;
+        try {
+            const secrets = require(`${__hooks}/secrets.json`);
+            if (secrets && secrets[key]) {
+                return secrets[key];
+            }
+        } catch (e) {}
+        return defaultValue;
+    }
+
     // ─── KONFIGURASI backend ───
     const ACTIVE_OPTION = 'TELEGRAM'; // Pilihan: 'TELEGRAM', 'LOCAL_MOCK', 'TWILIO', 'FONNTE', 'META_WABA', 'LOCAL_GATEWAY'
 
@@ -422,13 +425,7 @@ routerAdd("POST", "/api/warrierung/verify-otp", (e) => {
         return output;
     }
 
-    const data = {
-        phone_number: "",
-        otp: ""
-    };
-    try {
-        e.bindBody(data);
-    } catch (err) {}
+    const data = e.requestInfo().body || {};
     let phoneNumber = data.phone_number;
     const otpCode = data.otp;
 

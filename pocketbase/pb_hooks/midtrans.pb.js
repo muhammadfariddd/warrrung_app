@@ -4,28 +4,24 @@
 // untuk backend PocketBase waRRRung.
 
 // Helper untuk mengambil secret dari env atau secrets.json
-function getSecret(key, defaultValue) {
-    // 1. Coba dari environment variable
-    let val = $os.getenv(key);
-    if (val) return val;
-
-    // 2. Coba dari pb_hooks/secrets.json
-    try {
-        const secrets = require(`${__hooks}/secrets.json`);
-        if (secrets && secrets[key]) {
-            return secrets[key];
-        }
-    } catch (e) {
-        // file tidak ditemukan atau error parsing
-    }
-
-    return defaultValue;
-}
+// (Didefinisikan secara lokal di dalam callback handler untuk kepastian scope)
 
 // ─── CUSTOM API ENDPOINTS ───────────────────────────────────────────────────────
 
 // 1. ENDPOINT CHECKOUT MIDTRANS (POST /api/warrierung/midtrans/checkout)
 routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
+    function getSecret(key, defaultValue) {
+        let val = $os.getenv(key);
+        if (val) return val;
+        try {
+            const secrets = require(`${__hooks}/secrets.json`);
+            if (secrets && secrets[key]) {
+                return secrets[key];
+            }
+        } catch (e) {}
+        return defaultValue;
+    }
+
     // ─── KONFIGURASI MIDTRANS ───
     const MIDTRANS_SERVER_KEY = getSecret("MIDTRANS_SERVER_KEY", "your_midtrans_server_key_here");
     const MIDTRANS_CLIENT_KEY = getSecret("MIDTRANS_CLIENT_KEY", "your_midtrans_client_key_here");
@@ -56,10 +52,7 @@ routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
     }
 
     try {
-        const data = {};
-        try {
-            e.bindBody(data);
-        } catch (err) {}
+        const data = e.requestInfo().body || {};
         const userId = data.user_id;
         const outletId = data.outlet_id;
         const orderType = data.order_type; // 'delivery' atau 'pickup'
@@ -332,14 +325,23 @@ routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
 
 // 2. ENDPOINT WEBHOOK NOTIFIKASI MIDTRANS (POST /api/warrierung/midtrans/webhook)
 routerAdd("POST", "/api/warrierung/midtrans/webhook", (e) => {
+    function getSecret(key, defaultValue) {
+        let val = $os.getenv(key);
+        if (val) return val;
+        try {
+            const secrets = require(`${__hooks}/secrets.json`);
+            if (secrets && secrets[key]) {
+                return secrets[key];
+            }
+        } catch (e) {}
+        return defaultValue;
+    }
+
     // ─── KONFIGURASI MIDTRANS ───
     const MIDTRANS_SERVER_KEY = getSecret("MIDTRANS_SERVER_KEY", "your_midtrans_server_key_here");
 
     try {
-        const body = {};
-        try {
-            e.bindBody(body);
-        } catch (err) {}
+        const body = e.requestInfo().body || {};
         const orderId = body.order_id;
         const statusCode = body.status_code;
         const grossAmount = body.gross_amount;
