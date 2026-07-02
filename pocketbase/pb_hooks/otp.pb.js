@@ -91,12 +91,13 @@ routerAdd("POST", "/api/warrierung/request-otp", (e) => {
                 // User belum terdaftar / nomor tidak ditemukan
             }
 
-            let isFallback = false;
             if (!telegramChatId || telegramChatId.trim() === "") {
-                isFallback = true;
+                return e.json(400, { 
+                    "message": "Nomor Anda belum terhubung dengan Bot Telegram. Silakan cari @waRRRung_bot di Telegram dan kirimkan kontak Anda terlebih dahulu." 
+                });
             }
 
-            const otp = isFallback ? "1234" : Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit
+            const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit
             
             // Simpan OTP sementara di database
             const otpsCollection = $app.findCollectionByNameOrId("otps");
@@ -117,12 +118,6 @@ routerAdd("POST", "/api/warrierung/request-otp", (e) => {
             expDate.setMinutes(expDate.getMinutes() + 5);
             otpRecord.set("expired_at", expDate.toISOString());
             $app.save(otpRecord);
-
-            if (isFallback) {
-                // Jika fallback, tidak perlu menembak API Telegram. Langsung sukses.
-                console.log("[OTP FALLBACK] Nomor " + phoneNumber + " menggunakan OTP default: 1234");
-                return e.json(200, { "message": "OTP dikirim. (Gunakan 1234 jika Telegram belum terhubung)" });
-            }
 
             // Kirim OTP ke Telegram via Bot API
             const BOT_TOKEN = getSecret("TELEGRAM_BOT_TOKEN", "your_telegram_bot_token_here");
