@@ -95,7 +95,7 @@ routerAdd("POST", "/api/warrrung/request-otp", (e) => {
             if (resendApiKey) {
                 const senderEmail = getSecret("SENDER_EMAIL", "onboarding@resend.dev");
                 console.log("[EMAIL] Mengirim via Resend API dari " + senderEmail + " ke " + email + "...");
-                $http.send({
+                const res = $http.send({
                     url: "https://api.resend.com/emails",
                     method: "POST",
                     headers: {
@@ -109,10 +109,11 @@ routerAdd("POST", "/api/warrrung/request-otp", (e) => {
                         html: `🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>${otp}</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.`
                     })
                 });
+                console.log("[RESEND API RESPONSE] Status: " + res.statusCode + ", Body: " + res.raw);
             } else if (brevoApiKey) {
                 const senderEmail = getSecret("SENDER_EMAIL", "admin@warrrung.id");
                 console.log("[EMAIL] Mengirim via Brevo API dari " + senderEmail + " ke " + email + "...");
-                $http.send({
+                const res = $http.send({
                     url: "https://api.brevo.com/v3/smtp/email",
                     method: "POST",
                     headers: {
@@ -126,6 +127,7 @@ routerAdd("POST", "/api/warrrung/request-otp", (e) => {
                         htmlContent: `🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>${otp}</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.`
                     })
                 });
+                console.log("[BREVO API RESPONSE] Status: " + res.statusCode + ", Body: " + res.raw);
             } else {
                 console.log("[EMAIL] Mengirim via Standard SMTP...");
                 const message = new MailerMessage({
