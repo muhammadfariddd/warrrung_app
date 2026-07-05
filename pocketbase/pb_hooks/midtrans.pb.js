@@ -18,16 +18,16 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
             if (secrets && secrets[key]) {
                 return secrets[key];
             }
-        } catch (e) {}
+        } catch (e) { }
         return defaultValue;
     }
 
     // ─── KONFIGURASI MIDTRANS ───
     const MIDTRANS_SERVER_KEY = getSecret("MIDTRANS_SERVER_KEY", "your_midtrans_server_key_here");
     const MIDTRANS_CLIENT_KEY = getSecret("MIDTRANS_CLIENT_KEY", "your_midtrans_client_key_here");
-    const IS_PRODUCTION = false; // Ubah ke true jika sudah Production
+    const IS_PRODUCTION = true; // Ubah ke true jika sudah Production
 
-    const coreApiUrl = IS_PRODUCTION 
+    const coreApiUrl = IS_PRODUCTION
         ? "https://api.midtrans.com/v2/charge"
         : "https://api.sandbox.midtrans.com/v2/charge";
 
@@ -98,7 +98,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
         orderRecord.set("total_payment", totalPayment);
         orderRecord.set("payment_method", "Midtrans_" + paymentMethod);
         orderRecord.set("payment_gateway_trx_id", "");
-        
+
         try {
             $app.save(orderRecord);
         } catch (err) {
@@ -123,7 +123,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
             try {
                 $app.save(itemRecord);
             } catch (err) {
-                try { $app.delete(orderRecord); } catch (_) {}
+                try { $app.delete(orderRecord); } catch (_) { }
                 return e.json(400, {
                     "message": "Gagal menyimpan item pesanan (Order Item).",
                     "details": err.message || err.toString()
@@ -133,7 +133,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
 
         // 3. Request ke Midtrans Core API
         const authHeader = "Basic " + base64Encode(MIDTRANS_SERVER_KEY + ":");
-        
+
         let customerDetails = {
             "first_name": userRecord.get("name") || "Pelanggan waRRRung"
         };
@@ -203,15 +203,15 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
         console.log("MIDTRANS CORE API RESPONSE: " + JSON.stringify(midtransResult));
 
         // Deteksi jika channel tidak aktif (402 atau 400 dengan pesan channel not activated)
-        const isChannelNotActivated = (response.statusCode === 402) || 
-                                      (response.statusCode === 400 && midtransResult && midtransResult.status_code === "402") ||
-                                      (midtransResult && midtransResult.status_code === "402") ||
-                                      (midtransResult && midtransResult.status_message && midtransResult.status_message.includes("not activated"));
+        const isChannelNotActivated = (response.statusCode === 402) ||
+            (response.statusCode === 400 && midtransResult && midtransResult.status_code === "402") ||
+            (midtransResult && midtransResult.status_code === "402") ||
+            (midtransResult && midtransResult.status_message && midtransResult.status_message.includes("not activated"));
 
         if (isChannelNotActivated) {
             console.log("FALLBACK: Payment channel " + paymentMethod + " tidak aktif di Core API. Menggunakan Midtrans Snap...");
-            
-            const snapApiUrl = IS_PRODUCTION 
+
+            const snapApiUrl = IS_PRODUCTION
                 ? "https://app.midtrans.com/snap/v1/transactions"
                 : "https://app.sandbox.midtrans.com/snap/v1/transactions";
 
@@ -236,7 +236,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
             });
 
             if (snapResponse.statusCode >= 400) {
-                try { $app.delete(orderRecord); } catch (_) {}
+                try { $app.delete(orderRecord); } catch (_) { }
                 return e.json(snapResponse.statusCode, {
                     "message": "Gagal membuat transaksi di Midtrans Snap (Fallback).",
                     "details": snapResponse.json
@@ -262,7 +262,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
             // Hapus record order jika gagal menghubungi Midtrans
             try {
                 $app.delete(orderRecord);
-            } catch (err) {}
+            } catch (err) { }
             return e.json(response.statusCode, {
                 "message": "Gagal membuat transaksi di Midtrans.",
                 "details": response.json
@@ -272,14 +272,14 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
         if (midtransResult.status_code && midtransResult.status_code !== "200" && midtransResult.status_code !== "201") {
             try {
                 $app.delete(orderRecord);
-            } catch (err) {}
+            } catch (err) { }
             return e.json(400, {
                 "message": "Gagal membuat transaksi di Midtrans: " + (midtransResult.status_message || ""),
                 "status_code": midtransResult.status_code,
                 "details": midtransResult
             });
         }
-        
+
         // Simpan ID Transaksi Midtrans ke field payment_gateway_trx_id sebagai referensi
         orderRecord.set("payment_gateway_trx_id", midtransResult.transaction_id || "");
         $app.save(orderRecord);
@@ -299,7 +299,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
                 }
             }
         }
-        
+
         if (midtransResult.qr_string) {
             qrString = midtransResult.qr_string;
         }
@@ -333,7 +333,7 @@ routerAdd("POST", "/api/warrrung/midtrans/webhook", (e) => {
             if (secrets && secrets[key]) {
                 return secrets[key];
             }
-        } catch (e) {}
+        } catch (e) { }
         return defaultValue;
     }
 
