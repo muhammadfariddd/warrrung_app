@@ -12,6 +12,7 @@ import 'package:warrrung_app/location_selection_page.dart';
 import 'package:warrrung_app/product_detail_page.dart';
 import 'package:warrrung_app/navigation_menu.dart';
 import 'package:warrrung_app/services/pocketbase_service.dart';
+import 'package:warrrung_app/payment_webview_page.dart';
 
 class OrderConfirmationPage extends StatefulWidget {
   final bool isEmbedded;
@@ -33,6 +34,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   bool _paymentSuccessful = false;
   bool _isAppInForeground = true;
   bool _isTransitioned = false;
+  bool _isWebViewOpen = false;
   CartProvider? _storedCartProvider;
 
   @override
@@ -74,6 +76,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     }
 
     if (context.mounted) {
+      if (_isWebViewOpen) {
+        _isWebViewOpen = false;
+        Navigator.of(context).pop(); // Tutup WebView halaman pembayaran
+      }
       Navigator.of(context).pop(); // Tutup bottom sheet menunggu pembayaran
       if (_storedCartProvider != null) {
         _showSuccessSheet(context, _storedCartProvider!);
@@ -953,11 +959,19 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             
             if (!launched) {
               debugPrint('Gagal membuka aplikasi secara langsung (mungkin tidak terinstall). Mencoba fallback...');
-              if (redirectUrl.isNotEmpty) {
-                await launchUrl(
-                  Uri.parse(redirectUrl),
-                  mode: LaunchMode.externalApplication,
-                );
+              if (redirectUrl.isNotEmpty && context.mounted) {
+                _isWebViewOpen = true;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PaymentWebViewPage(
+                      redirectUrl: redirectUrl,
+                      orderId: orderId,
+                    ),
+                  ),
+                ).then((_) {
+                  _isWebViewOpen = false;
+                });
               } else if (qrCodeUrl.isNotEmpty && context.mounted) {
                 // Tutup waiting sheet dan tampilkan QRIS
                 Navigator.of(context).pop();
@@ -966,11 +980,19 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             }
           } catch (e) {
             debugPrint('Error saat mencoba membuka deep link: $e. Membuka fallback...');
-            if (redirectUrl.isNotEmpty) {
-              await launchUrl(
-                Uri.parse(redirectUrl),
-                mode: LaunchMode.externalApplication,
-              );
+            if (redirectUrl.isNotEmpty && context.mounted) {
+              _isWebViewOpen = true;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PaymentWebViewPage(
+                    redirectUrl: redirectUrl,
+                    orderId: orderId,
+                  ),
+                ),
+              ).then((_) {
+                _isWebViewOpen = false;
+              });
             } else if (qrCodeUrl.isNotEmpty && context.mounted) {
               Navigator.of(context).pop();
               _showQrisDialog(context, cartProvider, orderId, qrCodeUrl, qrString);
@@ -981,11 +1003,20 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             _showWaitingPaymentSheet(context, cartProvider, orderId);
           }
           await Future.delayed(const Duration(milliseconds: 150));
-          final Uri paymentUri = Uri.parse(redirectUrl);
-          await launchUrl(
-            paymentUri,
-            mode: LaunchMode.externalApplication,
-          );
+          if (context.mounted) {
+            _isWebViewOpen = true;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PaymentWebViewPage(
+                  redirectUrl: redirectUrl,
+                  orderId: orderId,
+                ),
+              ),
+            ).then((_) {
+              _isWebViewOpen = false;
+            });
+          }
         } else {
           if (context.mounted) {
             _showWaitingPaymentSheet(context, cartProvider, orderId);

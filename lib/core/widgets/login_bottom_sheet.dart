@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:warrrung_app/core/widgets/custom_icons.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
 
