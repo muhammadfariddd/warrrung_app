@@ -415,7 +415,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   ) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -499,7 +499,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
