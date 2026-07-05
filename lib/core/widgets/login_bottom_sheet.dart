@@ -31,8 +31,8 @@ class LoginBottomSheet extends StatefulWidget {
 
 class _LoginBottomSheetState extends State<LoginBottomSheet> {
   AuthSheetStage _stage = AuthSheetStage.phoneInput;
-  final TextEditingController _phoneController = TextEditingController();
-  bool _isPhoneValid = false;
+  final TextEditingController _emailController = TextEditingController();
+  bool _isEmailValid = false;
 
   // OTP inputs
   final List<TextEditingController> _otpControllers = List.generate(
@@ -51,7 +51,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     for (var controller in _otpControllers) {
       controller.dispose();
     }
@@ -142,7 +142,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
     }
   }
 
-  // ─── STAGE 1: PHONE INPUT + GOOGLE AUTH SHEET ───────────────────────
+  // ─── STAGE 1: EMAIL INPUT + GOOGLE AUTH SHEET ───────────────────────
   Widget _buildPhoneInputStage(AuthProvider authProvider) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -178,41 +178,10 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
               ],
             ),
           ),
-          if (authProvider.errorMessage!.contains('Telegram') || authProvider.errorMessage!.contains('telegram')) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 40,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final uri = Uri.parse('https://t.me/warrrung_bot');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 18),
-                label: Text(
-                  'Hubungkan Telegram',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF29B6F6), // Telegram blue
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
         ],
 
-        // Input container "+62 | Nomor Handphone"
+        // Input container "Alamat Email"
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
@@ -221,35 +190,32 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
           ),
           child: Row(
             children: [
-              Text(
-                '+62',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1A1A1A),
-                ),
+              const Icon(
+                Icons.mail_outline_rounded,
+                color: Color(0xFF757575),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   autofocus: true,
                   onChanged: (val) {
                     setState(() {
-                      _isPhoneValid = val.trim().length >= 8;
+                      final email = val.trim();
+                      _isEmailValid = email.contains('@') && email.contains('.');
                     });
                   },
                   style: GoogleFonts.poppins(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1A1A1A),
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Nomor Handphone',
+                    hintText: 'Alamat Email',
                     hintStyle: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF757575).withValues(alpha: 0.5),
                     ),
@@ -266,12 +232,12 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: _isPhoneValid
+            onPressed: _isEmailValid
                 ? () async {
                     FocusScope.of(context).unfocus();
                     authProvider.clearErrors();
                     final success = await authProvider.requestOtp(
-                      '+62${_phoneController.text.trim()}',
+                      _emailController.text.trim(),
                     );
                     if (success) {
                       setState(() {
@@ -281,7 +247,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                   }
                 : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isPhoneValid
+              backgroundColor: _isEmailValid
                   ? const Color(0xFF8C5E3C)
                   : const Color(0xFFE0E0E0),
               disabledBackgroundColor: const Color(0xFFE0E0E0),
@@ -295,7 +261,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: _isPhoneValid ? Colors.white : const Color(0xFF9E9E9E),
+                color: _isEmailValid ? Colors.white : const Color(0xFF9E9E9E),
               ),
             ),
           ),
@@ -425,9 +391,9 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
         ),
         const SizedBox(height: 6),
 
-        // Subtitle containing phone number
+        // Subtitle containing email
         Text(
-          'Masukkan 4 digit kode OTP yang dikirim melalui Telegram ke +62 ${_phoneController.text.trim()}\n(Gunakan kode default 1234 jika belum terhubung)',
+          'Masukkan 4 digit kode OTP yang dikirim ke email ${_emailController.text.trim()}',
           style: GoogleFonts.poppins(
             fontSize: 12.5,
             color: const Color(0xFF757575),
@@ -553,7 +519,7 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
           child: GestureDetector(
             onTap: () {
               authProvider.clearErrors();
-              authProvider.requestOtp('+62${_phoneController.text.trim()}');
+              authProvider.requestOtp(_emailController.text.trim());
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Kode OTP berhasil dikirim ulang!'),

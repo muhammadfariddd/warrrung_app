@@ -156,7 +156,7 @@ class _HomePageState extends State<HomePage> {
                 final authProvider = context.watch<AuthProvider>();
                 final userName = authProvider.isAuthenticated
                     ? (authProvider.currentUser?.data['name'] as String? ??
-                          authProvider.currentUser?.data['phone_number']
+                          authProvider.currentUser?.data['email']
                               as String? ??
                           'Sahabat')
                     : 'Sahabat waRRRung';
@@ -397,12 +397,9 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildBannerCard(int index) {
     final bannerData = [
-      {
-        'image': 'images/soto_ayam_banner.png',
-        'bgColor': const Color(0xFFFFF8E1),
-      },
-      {'image': 'images/nasi_goreng.png', 'bgColor': const Color(0xFFFFEBEE)},
-      {'image': 'images/mie_ayam.png', 'bgColor': const Color(0xFFFFF3E0)},
+      {'image': 'images/banner/banner-1.jpg'},
+      {'image': 'images/banner/banner-2.jpg'},
+      {'image': 'images/banner/banner-3.jpg'},
     ];
 
     final data = bannerData[index];

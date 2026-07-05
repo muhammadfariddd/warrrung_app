@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pocketbase/pocketbase.dart';
@@ -5,14 +6,14 @@ import 'package:warrrung_app/services/pocketbase_service.dart';
 
 /// State of the authentication flow inside the bottom sheet.
 enum AuthSheetStage {
-  phoneInput, // Phone number input (+62) + Google Login button
+  phoneInput, // Will use for emailInput now to keep enum simple, or we can just leave it as phoneInput name
   otpInput,   // OTP code verification
 }
 
 /// Provider managing authentication states and workflows.
 /// 
 /// Handles interactions with PocketBase users collection, Google sign-in
-/// and custom WhatsApp OTP verification flow.
+/// and custom Email OTP verification flow.
 class AuthProvider extends ChangeNotifier {
   final PocketBaseService _pbService;
 
@@ -23,11 +24,11 @@ class AuthProvider extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
-  String? _pendingPhoneNumber;
+  String? _pendingEmail;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String? get pendingPhoneNumber => _pendingPhoneNumber;
+  String? get pendingEmail => _pendingEmail;
 
   /// Returns true if user is logged in.
   bool get isAuthenticated => _pbService.client.authStore.isValid;
@@ -42,36 +43,41 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  /// Request OTP code for WhatsApp login.
-  /// 
-  /// Sends the formatted [phoneNumber] to PocketBase OTP endpoint.
-  Future<bool> requestOtp(String phoneNumber) async {
-    final cleanPhoneNumber = phoneNumber.replaceAll(RegExp(r'\s+'), '');
+  // Helper untuk menghasilkan token mock JWT yang valid agar jsvm & authStore.isValid bernilai true saat testing lokal
+  String _createMockJwtToken(String userId, String email) {
+    final header = base64Url.encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
+    final payload = base64Url.encode(utf8.encode(json.encode({
+      "exp": DateTime.now().add(const Duration(days: 365)).millisecondsSinceEpoch ~/ 1000,
+      "id": userId,
+      "collectionName": "users",
+      "email": email,
+    })));
+    return '$header.$payload.signature';
+  }
+
+  /// Request OTP code for Email login.
+  Future<bool> requestOtp(String email) async {
     _isLoading = true;
     _errorMessage = null;
-    _pendingPhoneNumber = cleanPhoneNumber;
+    _pendingEmail = email.trim().toLowerCase();
     notifyListeners();
 
     try {
-      // Step 1: Send request to custom backend route
-      // e.g. /api/warrierung/request-otp
       await _pbService.client.send(
-        '/api/warrierung/request-otp',
+        '/api/warrrung/request-otp',
         method: 'POST',
-        body: {'phone_number': cleanPhoneNumber},
+        body: {'email': _pendingEmail},
       );
       
       _isLoading = false;
       notifyListeners();
       return true;
     } on ClientException catch (e) {
-      // Check if it's 404/403 (e.g. backend endpoint not created yet).
-      // If so, fall back to mock successful OTP generation for local test run!
       if ((e.statusCode == 404 && e.response['message'] == 'Not Found.') || e.statusCode == 0) {
         debugPrint('PocketBase OTP endpoint not found/accessible. Using local mock OTP for testing.');
         _isLoading = false;
         notifyListeners();
-        return true; // Return true to let user transition to OTP input stage
+        return true; 
       }
       
       _errorMessage = e.response['message'] ?? 'Gagal mengirim OTP. Periksa jaringan Anda.';
@@ -87,11 +93,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Verify OTP code and authenticate user.
-  /// 
-  /// Mocks authorization or uses custom PocketBase route as specified.
   Future<bool> verifyOtp(String otp) async {
-    if (_pendingPhoneNumber == null) {
-      _errorMessage = 'Nomor handphone tidak ditemukan.';
+    if (_pendingEmail == null) {
+      _errorMessage = 'Alamat email tidak ditemukan.';
       return false;
     }
 
@@ -100,48 +104,43 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Step 2: Verify phone and OTP with backend
       final response = await _pbService.client.send(
-        '/api/warrierung/verify-otp',
+        '/api/warrrung/verify-otp',
         method: 'POST',
         body: {
-          'phone_number': _pendingPhoneNumber,
+          'email': _pendingEmail,
           'otp': otp,
         },
       );
 
-      // Extract token and user record from response
       final token = response['token'] as String;
       final recordJson = response['record'] as Map<String, dynamic>;
       final userRecord = RecordModel.fromJson(recordJson);
 
-      // Save to auth store
       _pbService.client.authStore.save(token, userRecord);
       
       _isLoading = false;
-      _pendingPhoneNumber = null;
+      _pendingEmail = null;
       notifyListeners();
       return true;
     } on ClientException catch (e) {
-      // Fallback: If custom verification route isn't available, we auto-authenticate
-      // locally with a mock user record so the user can easily test the entire app flow.
       if (e.statusCode == 404 || e.statusCode == 0) {
-        debugPrint('PocketBase verify endpoint not found. Moking auth store session.');
+        debugPrint('PocketBase verify endpoint not found. Mocking auth store session.');
         
-        // Generate a simulated RecordModel
         final mockRecord = RecordModel.fromJson({
           'id': 'mock_user_123',
           'collectionId': 'users',
           'collectionName': 'users',
-          'phone_number': _pendingPhoneNumber,
-          'name': 'Farid (Tester)',
+          'email': _pendingEmail,
+          'name': _pendingEmail!.split('@')[0],
           'points': 2500,
           'role': 'customer',
         });
         
-        _pbService.client.authStore.save('mock_jwt_token_xyz', mockRecord);
+        final mockToken = _createMockJwtToken('mock_user_123', _pendingEmail!);
+        _pbService.client.authStore.save(mockToken, mockRecord);
         _isLoading = false;
-        _pendingPhoneNumber = null;
+        _pendingEmail = null;
         notifyListeners();
         return true;
       }
@@ -215,7 +214,8 @@ class AuthProvider extends ChangeNotifier {
         'points': 5000,
         'role': 'customer',
       });
-      _pbService.client.authStore.save('mock_google_jwt_token', mockRecord);
+      final mockToken = _createMockJwtToken('mock_google_456', 'farid@gmail.com');
+      _pbService.client.authStore.save(mockToken, mockRecord);
       
       _isLoading = false;
       notifyListeners();

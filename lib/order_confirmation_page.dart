@@ -904,7 +904,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
 
       // 2. Kirim request checkout ke backend PocketBase Custom Endpoint
       final response = await pbService.client.send(
-        '/api/warrierung/midtrans/checkout',
+        '/api/warrrung/midtrans/checkout',
         method: 'POST',
         body: {
           'user_id': user.id,

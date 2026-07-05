@@ -8,8 +8,8 @@
 
 // ─── CUSTOM API ENDPOINTS ───────────────────────────────────────────────────────
 
-// 1. ENDPOINT CHECKOUT MIDTRANS (POST /api/warrierung/midtrans/checkout)
-routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
+// 1. ENDPOINT CHECKOUT MIDTRANS (POST /api/warrrung/midtrans/checkout)
+routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
     function getSecret(key, defaultValue) {
         let val = $os.getenv(key);
         if (val) return val;
@@ -323,8 +323,8 @@ routerAdd("POST", "/api/warrierung/midtrans/checkout", (e) => {
     }
 });
 
-// 2. ENDPOINT WEBHOOK NOTIFIKASI MIDTRANS (POST /api/warrierung/midtrans/webhook)
-routerAdd("POST", "/api/warrierung/midtrans/webhook", (e) => {
+// 2. ENDPOINT WEBHOOK NOTIFIKASI MIDTRANS (POST /api/warrrung/midtrans/webhook)
+routerAdd("POST", "/api/warrrung/midtrans/webhook", (e) => {
     function getSecret(key, defaultValue) {
         let val = $os.getenv(key);
         if (val) return val;
