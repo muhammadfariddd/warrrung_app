@@ -87,18 +87,58 @@ routerAdd("POST", "/api/warrrung/request-otp", (e) => {
         otpRecord.set("expired_at", expDate.toISOString());
         $app.save(otpRecord);
 
-        // 5. Kirim email OTP menggunakan konfigurasi SMTP di Mail Settings
+        // 5. Kirim email OTP (Mendukung Resend/Brevo API untuk menghindari blokir SMTP di Railway)
         try {
-            const message = new MailerMessage({
-                from: {
-                    address: $app.settings().meta.senderAddress,
-                    name:    $app.settings().meta.senderName || "waRRRung",
-                },
-                to: [{ address: email }],
-                subject: "Kode OTP waRRRung Anda",
-                html: "🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>" + otp + "</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.",
-            });
-            $app.newMailClient().send(message);
+            const resendApiKey = getSecret("RESEND_API_KEY", "");
+            const brevoApiKey = getSecret("BREVO_API_KEY", "");
+
+            if (resendApiKey) {
+                const senderEmail = getSecret("SENDER_EMAIL", "onboarding@resend.dev");
+                console.log("[EMAIL] Mengirim via Resend API dari " + senderEmail + " ke " + email + "...");
+                $http.send({
+                    url: "https://api.resend.com/emails",
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + resendApiKey,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        from: `waRRRung <${senderEmail}>`,
+                        to: [email],
+                        subject: "Kode OTP waRRRung Anda",
+                        html: `🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>${otp}</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.`
+                    })
+                });
+            } else if (brevoApiKey) {
+                const senderEmail = getSecret("SENDER_EMAIL", "admin@warrrung.id");
+                console.log("[EMAIL] Mengirim via Brevo API dari " + senderEmail + " ke " + email + "...");
+                $http.send({
+                    url: "https://api.brevo.com/v3/smtp/email",
+                    method: "POST",
+                    headers: {
+                        "api-key": brevoApiKey,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        sender: { name: "waRRRung", email: senderEmail },
+                        to: [{ email: email }],
+                        subject: "Kode OTP waRRRung Anda",
+                        htmlContent: `🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>${otp}</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.`
+                    })
+                });
+            } else {
+                console.log("[EMAIL] Mengirim via Standard SMTP...");
+                const message = new MailerMessage({
+                    from: {
+                        address: $app.settings().meta.senderAddress,
+                        name:    $app.settings().meta.senderName || "waRRRung",
+                    },
+                    to: [{ address: email }],
+                    subject: "Kode OTP waRRRung Anda",
+                    html: "🔐 Kode OTP Anda untuk masuk ke waRRRung adalah: <b>" + otp + "</b><br><br>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapa pun.",
+                });
+                $app.newMailClient().send(message);
+            }
         } catch (mailErr) {
             console.log("[EMAIL OTP FAIL] Gagal mengirim email: " + mailErr.message);
         }
