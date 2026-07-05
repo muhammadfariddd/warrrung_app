@@ -13,12 +13,19 @@ class LocationProvider extends ChangeNotifier {
   // Tab selection: 'pickup' or 'delivery'
   String _activeTab = 'pickup'; 
   String _searchQuery = '';
+  String? _selectedDeliveryAddress;
 
   List<OutletModel> get outlets => _filteredOutlets;
   bool get isLoading => _isLoading;
   OutletModel? get selectedOutlet => _selectedOutlet;
   String get activeTab => _activeTab;
   String get searchQuery => _searchQuery;
+  String? get selectedDeliveryAddress => _selectedDeliveryAddress;
+
+  void selectDeliveryAddress(String? address) {
+    _selectedDeliveryAddress = address;
+    notifyListeners();
+  }
 
   LocationProvider(this._outletRepository) {
     loadOutlets();

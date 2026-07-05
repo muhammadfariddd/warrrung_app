@@ -13,6 +13,7 @@ import 'package:warrrung_app/product_detail_page.dart';
 import 'package:warrrung_app/navigation_menu.dart';
 import 'package:warrrung_app/services/pocketbase_service.dart';
 import 'package:warrrung_app/payment_webview_page.dart';
+import 'package:warrrung_app/select_address_page.dart';
 
 class OrderConfirmationPage extends StatefulWidget {
   final bool isEmbedded;
@@ -97,6 +98,31 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             ? locationProvider.outlets.first
             : null);
 
+    final bool hasPickup = activeOutlet != null && activeOutlet.hasPickup;
+    final bool hasDineIn = activeOutlet != null && activeOutlet.hasDineIn;
+    final bool hasDelivery = activeOutlet != null && activeOutlet.hasDelivery;
+
+    // Reset service mode if current mode is not enabled in the active outlet
+    if (_selectedServiceMode == 'pickup' && !hasPickup) {
+      if (hasDelivery) {
+        _selectedServiceMode = 'delivery';
+      } else if (hasDineIn) {
+        _selectedServiceMode = 'dinein';
+      }
+    } else if (_selectedServiceMode == 'dinein' && !hasDineIn) {
+      if (hasPickup) {
+        _selectedServiceMode = 'pickup';
+      } else if (hasDelivery) {
+        _selectedServiceMode = 'delivery';
+      }
+    } else if (_selectedServiceMode == 'delivery' && !hasDelivery) {
+      if (hasPickup) {
+        _selectedServiceMode = 'pickup';
+      } else if (hasDineIn) {
+        _selectedServiceMode = 'dinein';
+      }
+    }
+
     // Theme Colors
     const Color primaryRed = Color(0xFFE31A22);
     const Color goldColor = Color(0xFFC5A880);
@@ -175,7 +201,16 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           textGray,
                         ),
 
-                        const SizedBox(height: 8),
+                        if (_selectedServiceMode == 'delivery') ...[
+                          _buildDeliveryAddressCard(
+                            context,
+                            locationProvider,
+                            goldColor,
+                            textDark,
+                            textGray,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
 
                         // 2.5 Pembayaran Langsung (Horizontal list of payment methods)
                         _buildPaymentMethodSection(goldColor, textDark, textGray),
@@ -193,6 +228,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           textDark,
                           textGray,
                         ),
+
+                        if (_selectedServiceMode == 'delivery' && locationProvider.selectedDeliveryAddress == null) ...[
+                          _buildShippingWarningCard(textDark, textGray),
+                          const SizedBox(height: 8),
+                        ],
 
                         const SizedBox(height: 8),
 
@@ -256,7 +296,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     Color gray,
     dynamic activeOutlet,
   ) {
+    final bool hasPickup = activeOutlet != null && activeOutlet.hasPickup;
     final bool hasDineIn = activeOutlet != null && activeOutlet.hasDineIn;
+    final bool hasDelivery = activeOutlet != null && activeOutlet.hasDelivery;
 
     return Container(
       color: Colors.white,
@@ -266,10 +308,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           _buildTabButton(
             'pickup',
             'Pickup',
-            'Order dan pickup di outlet',
+            hasPickup ? 'Order dan pickup di outlet' : 'Tidak tersedia di store ini',
             gold,
             dark,
             gray,
+            isEnabled: hasPickup,
           ),
           const SizedBox(width: 8),
           _buildTabButton(
@@ -285,10 +328,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           _buildTabButton(
             'delivery',
             'Delivery',
-            'Pesanan diantar kealamat',
+            hasDelivery ? 'Pesanan diantar kealamat' : 'Tidak tersedia di store ini',
             gold,
             dark,
             gray,
+            isEnabled: hasDelivery,
           ),
         ],
       ),
@@ -439,6 +483,132 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── DELIVERY ADDRESS CARD ──────────────────────────────────────────────────
+  Widget _buildDeliveryAddressCard(
+    BuildContext context,
+    LocationProvider provider,
+    Color gold,
+    Color dark,
+    Color gray,
+  ) {
+    final address = provider.selectedDeliveryAddress;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.location_on_outlined, color: gold, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    address != null ? 'Alamat Delivery' : 'Pilih Alamat Delivery',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: dark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    address ?? 'Silakan tentukan alamat tujuan pengantaran.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(fontSize: 11, color: gray),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SelectAddressPage(),
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Ubah',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── SHIPPING WARNING CARD ─────────────────────────────────────────────────
+  Widget _buildShippingWarningCard(Color dark, Color gray) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFE31A22),
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Jasa Pengiriman',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: dark,
+                  ),
+                ),
+                Text(
+                  'Pilih Alamat Pengiriman',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: gray,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.grey,
+            size: 20,
+          ),
+        ],
       ),
     );
   }
@@ -781,6 +951,14 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     Color dark,
     Color gray,
   ) {
+    final locationProvider = context.read<LocationProvider>();
+    final isDeliveryAndAddressEmpty = _selectedServiceMode == 'delivery' &&
+        locationProvider.selectedDeliveryAddress == null;
+
+    final VoidCallback? onPayPressed = isDeliveryAndAddressEmpty
+        ? null
+        : () => _initiateMidtransPayment(context, cartProvider);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
@@ -842,10 +1020,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             child: SizedBox(
               height: 48,
               child: ElevatedButton(
-                onPressed: () => _initiateMidtransPayment(context, cartProvider),
+                onPressed: onPayPressed,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: red,
-                  foregroundColor: Colors.white,
+                  backgroundColor: isDeliveryAndAddressEmpty ? Colors.grey.shade300 : red,
+                  foregroundColor: isDeliveryAndAddressEmpty ? Colors.grey.shade500 : Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -916,7 +1094,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           'user_id': user.id,
           'outlet_id': activeOutlet.id,
           'order_type': _selectedServiceMode,
-          'delivery_address': _selectedServiceMode == 'delivery' ? activeOutlet.address : '',
+          'delivery_address': _selectedServiceMode == 'delivery' ? (locationProvider.selectedDeliveryAddress ?? '') : '',
           'subtotal': subtotal,
           'delivery_fee': deliveryFee,
           'discount_fee': cartProvider.totalDiscount,
