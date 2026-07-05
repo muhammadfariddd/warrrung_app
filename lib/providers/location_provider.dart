@@ -29,10 +29,13 @@ class LocationProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    debugPrint('[LOCATION] Memulai loadOutlets dari PocketBase...');
     try {
-      _allOutlets = await _outletRepository.fetchOutlets();
+      _allOutlets = await _outletRepository.fetchOutlets().timeout(const Duration(seconds: 10));
+      debugPrint('[LOCATION] Sukses memuat ${_allOutlets.length} outlet.');
       _filterOutlets();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[LOCATION] Gagal memuat outlet: $e');
       _allOutlets = [];
       _filteredOutlets = [];
     } finally {

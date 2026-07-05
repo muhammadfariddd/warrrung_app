@@ -64,17 +64,23 @@ class HomeProvider extends ChangeNotifier {
       Future.microtask(() => notifyListeners());
     }
 
+    final url = PocketBaseService.baseUrl;
+    debugPrint('[HOME] Memulai loadHomeData dari URL: $url (outletId: $outletId)');
+
     try {
       // Execute all three repository calls concurrently to minimize loading time
+      // Menambahkan timeout 10 detik agar tidak memicu ANR jika jaringan terhambat
       final results = await Future.wait([
         _productRepository.fetchCategories(),
         _productRepository.fetchSpecialDeals(outletId: outletId),
         _productRepository.fetchProductsGroupedByCategory(outletId: outletId),
-      ]);
+      ]).timeout(const Duration(seconds: 10));
 
       final categories = results[0] as List<CategoryModel>;
       final specialDeals = results[1] as List<ProductModel>;
       final productsByCategory = results[2] as Map<String, List<ProductModel>>;
+
+      debugPrint('[HOME] Sukses memuat data home. Kategori: ${categories.length}, Spesial: ${specialDeals.length}');
 
       _state = HomeStateLoaded(
         categories: categories,
@@ -82,6 +88,7 @@ class HomeProvider extends ChangeNotifier {
         productsByCategory: productsByCategory,
       );
     } catch (e) {
+      debugPrint('[HOME] Gagal memuat data home: $e');
       // Exceptions are already cleanly mapped to Failure types in the repository
       _state = HomeStateError(e.toString());
     } finally {
