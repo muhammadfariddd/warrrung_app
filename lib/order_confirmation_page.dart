@@ -956,7 +956,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               if (redirectUrl.isNotEmpty) {
                 await launchUrl(
                   Uri.parse(redirectUrl),
-                  mode: LaunchMode.inAppWebView,
+                  mode: LaunchMode.externalApplication,
                 );
               } else if (qrCodeUrl.isNotEmpty && context.mounted) {
                 // Tutup waiting sheet dan tampilkan QRIS
@@ -969,7 +969,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             if (redirectUrl.isNotEmpty) {
               await launchUrl(
                 Uri.parse(redirectUrl),
-                mode: LaunchMode.inAppWebView,
+                mode: LaunchMode.externalApplication,
               );
             } else if (qrCodeUrl.isNotEmpty && context.mounted) {
               Navigator.of(context).pop();
@@ -984,7 +984,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           final Uri paymentUri = Uri.parse(redirectUrl);
           await launchUrl(
             paymentUri,
-            mode: LaunchMode.inAppWebView,
+            mode: LaunchMode.externalApplication,
           );
         } else {
           if (context.mounted) {
