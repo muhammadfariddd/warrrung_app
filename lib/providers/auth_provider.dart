@@ -182,7 +182,7 @@ class AuthProvider extends ChangeNotifier {
         throw Exception('Gagal mendapatkan server authorization code dari Google.');
       }
 
-      final redirectUrl = 'http://localhost:8090/api/oauth2-redirect';
+      final redirectUrl = '${_pbService.client.baseUrl}/api/oauth2-redirect';
       debugPrint('Exchanging Google serverAuthCode: $serverAuthCode with redirectUrl: $redirectUrl');
 
       // Exchange the serverAuthCode with PocketBase
