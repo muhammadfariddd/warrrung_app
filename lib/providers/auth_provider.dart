@@ -7,18 +7,19 @@ import 'package:warrrung_app/services/pocketbase_service.dart';
 /// State of the authentication flow inside the bottom sheet.
 enum AuthSheetStage {
   phoneInput, // Will use for emailInput now to keep enum simple, or we can just leave it as phoneInput name
-  otpInput,   // OTP code verification
+  otpInput, // OTP code verification
 }
 
 /// Provider managing authentication states and workflows.
-/// 
+///
 /// Handles interactions with PocketBase users collection, Google sign-in
 /// and custom Email OTP verification flow.
 class AuthProvider extends ChangeNotifier {
   final PocketBaseService _pbService;
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: '507863340115-uk6arcujpl79k1hfd2ad2f74m11ut08j.apps.googleusercontent.com',
+    serverClientId:
+        '507863340115-gk4jdl098olhj917e69inu86627lbg66.apps.googleusercontent.com',
     scopes: ['email', 'profile'],
   );
 
@@ -45,13 +46,23 @@ class AuthProvider extends ChangeNotifier {
 
   // Helper untuk menghasilkan token mock JWT yang valid agar jsvm & authStore.isValid bernilai true saat testing lokal
   String _createMockJwtToken(String userId, String email) {
-    final header = base64Url.encode(utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})));
-    final payload = base64Url.encode(utf8.encode(json.encode({
-      "exp": DateTime.now().add(const Duration(days: 365)).millisecondsSinceEpoch ~/ 1000,
-      "id": userId,
-      "collectionName": "users",
-      "email": email,
-    })));
+    final header = base64Url.encode(
+      utf8.encode(json.encode({"alg": "HS256", "typ": "JWT"})),
+    );
+    final payload = base64Url.encode(
+      utf8.encode(
+        json.encode({
+          "exp":
+              DateTime.now()
+                  .add(const Duration(days: 365))
+                  .millisecondsSinceEpoch ~/
+              1000,
+          "id": userId,
+          "collectionName": "users",
+          "email": email,
+        }),
+      ),
+    );
     return '$header.$payload.signature';
   }
 
@@ -68,19 +79,23 @@ class AuthProvider extends ChangeNotifier {
         method: 'POST',
         body: {'email': _pendingEmail},
       );
-      
+
       _isLoading = false;
       notifyListeners();
       return true;
     } on ClientException catch (e) {
-      if ((e.statusCode == 404 && e.response['message'] == 'Not Found.') || e.statusCode == 0) {
-        debugPrint('PocketBase OTP endpoint not found/accessible. Using local mock OTP for testing.');
+      if ((e.statusCode == 404 && e.response['message'] == 'Not Found.') ||
+          e.statusCode == 0) {
+        debugPrint(
+          'PocketBase OTP endpoint not found/accessible. Using local mock OTP for testing.',
+        );
         _isLoading = false;
         notifyListeners();
-        return true; 
+        return true;
       }
-      
-      _errorMessage = e.response['message'] ?? 'Gagal mengirim OTP. Periksa jaringan Anda.';
+
+      _errorMessage =
+          e.response['message'] ?? 'Gagal mengirim OTP. Periksa jaringan Anda.';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -107,10 +122,7 @@ class AuthProvider extends ChangeNotifier {
       final response = await _pbService.client.send(
         '/api/warrrung/verify-otp',
         method: 'POST',
-        body: {
-          'email': _pendingEmail,
-          'otp': otp,
-        },
+        body: {'email': _pendingEmail, 'otp': otp},
       );
 
       final token = response['token'] as String;
@@ -118,15 +130,17 @@ class AuthProvider extends ChangeNotifier {
       final userRecord = RecordModel.fromJson(recordJson);
 
       _pbService.client.authStore.save(token, userRecord);
-      
+
       _isLoading = false;
       _pendingEmail = null;
       notifyListeners();
       return true;
     } on ClientException catch (e) {
       if (e.statusCode == 404 || e.statusCode == 0) {
-        debugPrint('PocketBase verify endpoint not found. Mocking auth store session.');
-        
+        debugPrint(
+          'PocketBase verify endpoint not found. Mocking auth store session.',
+        );
+
         final mockRecord = RecordModel.fromJson({
           'id': 'mock_user_123',
           'collectionId': 'users',
@@ -136,7 +150,7 @@ class AuthProvider extends ChangeNotifier {
           'points': 2500,
           'role': 'customer',
         });
-        
+
         final mockToken = _createMockJwtToken('mock_user_123', _pendingEmail!);
         _pbService.client.authStore.save(mockToken, mockRecord);
         _isLoading = false;
@@ -144,8 +158,9 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      
-      _errorMessage = e.response['message'] ?? 'Kode OTP salah atau kedaluwarsa.';
+
+      _errorMessage =
+          e.response['message'] ?? 'Kode OTP salah atau kedaluwarsa.';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -179,26 +194,32 @@ class AuthProvider extends ChangeNotifier {
 
       final serverAuthCode = googleUser.serverAuthCode;
       if (serverAuthCode == null || serverAuthCode.isEmpty) {
-        throw Exception('Gagal mendapatkan server authorization code dari Google.');
+        throw Exception(
+          'Gagal mendapatkan server authorization code dari Google.',
+        );
       }
 
       final redirectUrl = '${_pbService.client.baseURL}/api/oauth2-redirect';
-      debugPrint('Exchanging Google serverAuthCode: $serverAuthCode with redirectUrl: $redirectUrl');
+      debugPrint(
+        'Exchanging Google serverAuthCode: $serverAuthCode with redirectUrl: $redirectUrl',
+      );
 
       // Exchange the serverAuthCode with PocketBase
-      final authData = await _pbService.client.collection('users').authWithOAuth2Code(
-        'google',
-        serverAuthCode,
-        '', // codeVerifier is empty for manual serverAuthCode flow
-        redirectUrl,
-      );
+      final authData = await _pbService.client
+          .collection('users')
+          .authWithOAuth2Code(
+            'google',
+            serverAuthCode,
+            '', // codeVerifier is empty for manual serverAuthCode flow
+            redirectUrl,
+          );
 
       if (authData.token.isNotEmpty) {
         _isLoading = false;
         notifyListeners();
         return true;
       }
-      
+
       _isLoading = false;
       notifyListeners();
       return false;

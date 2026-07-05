@@ -154,6 +154,14 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
             "customer_details": customerDetails
         };
 
+        let userPhone = userRecord.get("phone_number") || "";
+        if (userPhone && typeof userPhone === "string") {
+            userPhone = userPhone.trim();
+        }
+        if (!userPhone || userPhone === "") {
+            userPhone = "08123456789";
+        }
+
         if (paymentMethod === "gopay") {
             payload["payment_type"] = "gopay";
             payload["gopay"] = {
@@ -178,7 +186,7 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
         } else if (paymentMethod === "ovo") {
             payload["payment_type"] = "ovo";
             payload["ovo"] = {
-                "phone_number": userRecord.get("phone_number") || "08123456789"
+                "phone_number": userPhone
             };
         } else {
             // Fallback ke QRIS jika tidak cocok
