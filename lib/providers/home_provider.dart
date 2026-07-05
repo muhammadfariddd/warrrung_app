@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:warrrung_app/data/models/category_model.dart';
 import 'package:warrrung_app/data/models/product_model.dart';
 import 'package:warrrung_app/data/repositories/product_repository.dart';
+import 'package:warrrung_app/services/pocketbase_service.dart';
 
 /// Base class representing all states for the home screen logic.
 abstract class HomeState {}
