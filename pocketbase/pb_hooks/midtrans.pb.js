@@ -210,14 +210,12 @@ routerAdd("POST", "/api/warrrung/midtrans/checkout", (e) => {
         const midtransResult = response.json;
         console.log("MIDTRANS CORE API RESPONSE: " + JSON.stringify(midtransResult));
 
-        // Deteksi jika channel tidak aktif (402 atau 400 dengan pesan channel not activated)
-        const isChannelNotActivated = (response.statusCode === 402) ||
-            (response.statusCode === 400 && midtransResult && midtransResult.status_code === "402") ||
-            (midtransResult && midtransResult.status_code === "402") ||
-            (midtransResult && midtransResult.status_message && midtransResult.status_message.includes("not activated"));
+        // Deteksi jika Core API gagal (baik karena channel tidak aktif 402, payload not supported 400, dll.)
+        const isCoreApiFailed = (response.statusCode >= 400) ||
+            (midtransResult && midtransResult.status_code && midtransResult.status_code !== "200" && midtransResult.status_code !== "201" && midtransResult.status_code !== "202");
 
-        if (isChannelNotActivated) {
-            console.log("FALLBACK: Payment channel " + paymentMethod + " tidak aktif di Core API. Menggunakan Midtrans Snap...");
+        if (isCoreApiFailed) {
+            console.log("FALLBACK: Core API gagal (Status: " + response.statusCode + "). Menggunakan Midtrans Snap...");
 
             const snapApiUrl = IS_PRODUCTION
                 ? "https://app.midtrans.com/snap/v1/transactions"
