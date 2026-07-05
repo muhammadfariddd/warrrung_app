@@ -306,6 +306,13 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Berhasil masuk via Google!')),
                 );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(authProvider.errorMessage ?? 'Gagal masuk via Google.'),
+                    backgroundColor: const Color(0xFFC62828),
+                  ),
+                );
               }
             },
             style: OutlinedButton.styleFrom(

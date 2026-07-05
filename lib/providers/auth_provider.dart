@@ -182,7 +182,7 @@ class AuthProvider extends ChangeNotifier {
         throw Exception('Gagal mendapatkan server authorization code dari Google.');
       }
 
-      final redirectUrl = '${_pbService.client.baseUrl}/api/oauth2-redirect';
+      final redirectUrl = '${_pbService.client.baseURL}/api/oauth2-redirect';
       debugPrint('Exchanging Google serverAuthCode: $serverAuthCode with redirectUrl: $redirectUrl');
 
       // Exchange the serverAuthCode with PocketBase
@@ -203,23 +203,11 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
-      // Fallback: Create mock google session for testing
-      debugPrint('Google OAuth2 failed: $e. Simulating Google login for local testing.');
-      final mockRecord = RecordModel.fromJson({
-        'id': 'mock_google_456',
-        'collectionId': 'users',
-        'collectionName': 'users',
-        'name': 'Farid Google User',
-        'email': 'farid@gmail.com',
-        'points': 5000,
-        'role': 'customer',
-      });
-      final mockToken = _createMockJwtToken('mock_google_456', 'farid@gmail.com');
-      _pbService.client.authStore.save(mockToken, mockRecord);
-      
+      debugPrint('Google OAuth2 failed: $e.');
+      _errorMessage = 'Gagal masuk via Google: $e';
       _isLoading = false;
       notifyListeners();
-      return true;
+      return false;
     }
   }
 
