@@ -397,9 +397,9 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildBannerCard(int index) {
     final bannerData = [
-      {'image': 'images/banner/banner-1.jpg'},
-      {'image': 'images/banner/banner-2.jpg'},
-      {'image': 'images/banner/banner-3.jpg'},
+      {'image': 'images/banner/banner-1.png'},
+      {'image': 'images/banner/banner-2.png'},
+      {'image': 'images/banner/banner-3.png'},
     ];
 
     final data = bannerData[index];
@@ -425,6 +425,13 @@ class _HomePageState extends State<HomePage> {
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
+            errorBuilder: (ctx, err, st) => const Center(
+              child: Icon(
+                Icons.image_not_supported_rounded,
+                color: Colors.grey,
+                size: 40,
+              ),
+            ),
           ),
         ),
       ),
