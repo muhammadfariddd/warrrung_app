@@ -3,8 +3,52 @@ import 'package:warrrung_app/data/models/cart_item_model.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<CartItemModel> _items = [];
+  Map<String, dynamic>? _selectedVoucher;
 
   List<CartItemModel> get items => _items;
+  Map<String, dynamic>? get selectedVoucher => _selectedVoucher;
+
+  /// Applies a voucher to the cart
+  void applyVoucher(Map<String, dynamic>? voucher) {
+    _selectedVoucher = voucher;
+    notifyListeners();
+  }
+
+  /// Removes the currently selected voucher
+  void removeVoucher() {
+    _selectedVoucher = null;
+    notifyListeners();
+  }
+
+  /// Calculates the exact discount amount from the applied voucher
+  double get voucherDiscountAmount {
+    if (_selectedVoucher == null || _items.isEmpty) return 0.0;
+
+    final String vId = _selectedVoucher!['id'] as String? ?? '';
+    final double subtotal = totalPrice;
+
+    double discount = 0.0;
+    if (vId == 'v_banner3' || vId == 'v_diskon20k') {
+      discount = 20000.0;
+    } else if (vId == 'v_diskon30') {
+      discount = subtotal * 0.30;
+      if (discount > 30000) discount = 30000.0;
+    } else if (vId == 'v_ongkir') {
+      discount = 10000.0;
+    } else if (vId == 'v_cashback') {
+      discount = subtotal * 0.20;
+      if (discount > 25000) discount = 25000.0;
+    } else if (vId == 'v_checkin7') {
+      discount = subtotal * 0.10;
+    } else if (vId == 'v_checkin14') {
+      discount = subtotal * 0.15;
+    } else {
+      final num? numAmt = _selectedVoucher!['discountAmount'] as num?;
+      discount = (numAmt != null) ? numAmt.toDouble() : 20000.0;
+    }
+
+    return discount > subtotal ? subtotal : discount;
+  }
 
   /// Returns the sum of final prices for all items in the cart
   double get totalPrice {
@@ -16,10 +60,11 @@ class CartProvider extends ChangeNotifier {
     return _items.fold(0.0, (sum, item) => sum + item.totalStrikePrice);
   }
 
-  /// Returns the total discount amount saved in this cart
+  /// Returns the total discount amount saved in this cart (item savings + voucher savings)
   double get totalDiscount {
-    final double savings = totalStrikePrice - totalPrice;
-    return savings > 0 ? savings : 0.0;
+    final double itemSavings = totalStrikePrice - totalPrice;
+    final double savings = (itemSavings > 0 ? itemSavings : 0.0) + voucherDiscountAmount;
+    return savings;
   }
 
   /// Returns total count of items in the cart
@@ -77,12 +122,16 @@ class CartProvider extends ChangeNotifier {
   /// Removes an item from the cart
   void removeItem(String itemId) {
     _items.removeWhere((item) => item.id == itemId);
+    if (_items.isEmpty) {
+      _selectedVoucher = null;
+    }
     notifyListeners();
   }
 
   /// Clears the entire cart
   void clearCart() {
     _items.clear();
+    _selectedVoucher = null;
     notifyListeners();
   }
 

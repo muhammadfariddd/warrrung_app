@@ -14,6 +14,10 @@ import 'package:warrrung_app/navigation_menu.dart';
 import 'package:warrrung_app/services/pocketbase_service.dart';
 import 'package:warrrung_app/payment_webview_page.dart';
 import 'package:warrrung_app/select_address_page.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:warrrung_app/core/widgets/error_state_widget.dart';
+import 'package:warrrung_app/vouchers_page.dart';
+import 'package:warrrung_app/providers/reward_provider.dart';
 
 class OrderConfirmationPage extends StatefulWidget {
   final bool isEmbedded;
@@ -24,12 +28,16 @@ class OrderConfirmationPage extends StatefulWidget {
   State<OrderConfirmationPage> createState() => _OrderConfirmationPageState();
 }
 
-class _OrderConfirmationPageState extends State<OrderConfirmationPage> with WidgetsBindingObserver {
+class _OrderConfirmationPageState extends State<OrderConfirmationPage>
+    with WidgetsBindingObserver {
   String _selectedServiceMode = 'pickup'; // 'pickup', 'dinein', 'delivery'
   bool _isLoading = false;
   void Function()? _unsubscribeOrder;
-  String _selectedPaymentMethod = 'qris'; // 'qris', 'gopay', 'shopeepay', 'ovo', 'dana', 'credit_card'
+  String _selectedPaymentMethod =
+      'qris'; // 'qris', 'gopay', 'shopeepay', 'ovo', 'dana', 'credit_card'
   bool _hasShoppingBag = false;
+  bool _isPointsRedeemed = false;
+  String? _scheduledTime;
 
   // Proteksi Navigasi Latar Belakang & Daur Hidup Aplikasi
   bool _paymentSuccessful = false;
@@ -61,7 +69,8 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
       if (_paymentSuccessful && _storedCartProvider != null) {
         _handlePaymentSuccessTransition();
       }
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _isAppInForeground = false;
     }
   }
@@ -129,21 +138,28 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     const Color textDark = Color(0xFF1A1A1A);
     const Color textGray = Color(0xFF757575);
 
+    final rewardProvider = context.watch<RewardProvider>();
     final double subtotal = cartProvider.totalPrice;
-    final double deliveryFee = _selectedServiceMode == 'delivery' ? 10000.0 : 0.0;
+    final double deliveryFee = _selectedServiceMode == 'delivery'
+        ? 10000.0
+        : 0.0;
     final double shoppingBagFee = _hasShoppingBag ? 1000.0 : 0.0;
-    final double grandTotal = subtotal + deliveryFee + shoppingBagFee;
+    final double voucherDiscount = cartProvider.voucherDiscountAmount;
+    final double pointDiscount = _isPointsRedeemed ? rewardProvider.userPoints.toDouble() : 0.0;
+    final double rawGrandTotal = subtotal + deliveryFee + shoppingBagFee - voucherDiscount - pointDiscount;
+    final double grandTotal = rawGrandTotal > 0 ? rawGrandTotal : 0.0;
 
     final String formattedTotal =
         'Rp${grandTotal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 
-    final double discount = cartProvider.totalDiscount;
+    final double discount = cartProvider.totalDiscount + pointDiscount;
     final String? formattedDiscount = discount > 0
         ? 'Hemat Rp${discount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
         : null;
 
     final double strikeSubtotal = cartProvider.totalStrikePrice;
-    final double strikeGrandTotal = strikeSubtotal + deliveryFee + shoppingBagFee;
+    final double strikeGrandTotal =
+        strikeSubtotal + deliveryFee + shoppingBagFee;
     final String formattedStrikeTotal =
         'Rp${strikeGrandTotal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 
@@ -212,8 +228,20 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           const SizedBox(height: 8),
                         ],
 
+                        // 2.4 waRRRung Points Redeem Section (Persis Gambar 2)
+                        _buildRedeemPointsSection(
+                          context,
+                          goldColor,
+                          textDark,
+                          textGray,
+                        ),
+
                         // 2.5 Pembayaran Langsung (Horizontal list of payment methods)
-                        _buildPaymentMethodSection(goldColor, textDark, textGray),
+                        _buildPaymentMethodSection(
+                          goldColor,
+                          textDark,
+                          textGray,
+                        ),
 
                         const SizedBox(height: 8),
 
@@ -229,7 +257,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           textGray,
                         ),
 
-                        if (_selectedServiceMode == 'delivery' && locationProvider.selectedDeliveryAddress == null) ...[
+                        if (_selectedServiceMode == 'delivery' &&
+                            locationProvider.selectedDeliveryAddress ==
+                                null) ...[
                           _buildShippingWarningCard(textDark, textGray),
                           const SizedBox(height: 8),
                         ],
@@ -247,7 +277,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                         const SizedBox(height: 8),
 
                         // 5.5 Ringkasan Pembayaran Section
-                        _buildPaymentSummarySection(cartProvider, textDark, textGray),
+                        _buildPaymentSummarySection(
+                          cartProvider,
+                          textDark,
+                          textGray,
+                        ),
 
                         const SizedBox(height: 24),
                       ],
@@ -308,7 +342,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           _buildTabButton(
             'pickup',
             'Pickup',
-            hasPickup ? 'Order dan pickup di outlet' : 'Tidak tersedia di store ini',
+            hasPickup
+                ? 'Order dan pickup di outlet'
+                : 'Tidak tersedia di store ini',
             gold,
             dark,
             gray,
@@ -328,7 +364,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           _buildTabButton(
             'delivery',
             'Delivery',
-            hasDelivery ? 'Pesanan diantar kealamat' : 'Tidak tersedia di store ini',
+            hasDelivery
+                ? 'Pesanan diantar kealamat'
+                : 'Tidak tersedia di store ini',
             gold,
             dark,
             gray,
@@ -517,7 +555,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    address != null ? 'Alamat Delivery' : 'Pilih Alamat Delivery',
+                    address != null
+                        ? 'Alamat Delivery'
+                        : 'Pilih Alamat Delivery',
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -603,11 +643,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.grey,
-            size: 20,
-          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.grey, size: 20),
         ],
       ),
     );
@@ -867,6 +903,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   }
 
   Widget _buildVoucherSection(Color gold, Color dark, Color gray) {
+    final cartProvider = context.watch<CartProvider>();
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -882,15 +919,14 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               // 1. Voucher hint banner (Orange)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 color: const Color(0xFFFFF7ED),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.add,
-                      color: Color(0xFFEA580C),
-                      size: 14,
-                    ),
+                    const Icon(Icons.add, color: Color(0xFFEA580C), size: 14),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -902,41 +938,445 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                         ),
                       ),
                     ),
-                    Icon(Icons.more_horiz, color: Colors.grey.shade400, size: 16),
+                    Icon(
+                      Icons.more_horiz,
+                      color: Colors.grey.shade400,
+                      size: 16,
+                    ),
                   ],
                 ),
               ),
               // Divider between the hint banner and the voucher picker
-              Container(
-                height: 1.2,
-                color: const Color(0xFFECE6D9),
-              ),
+              Container(height: 1.2, color: const Color(0xFFECE6D9)),
               // 2. Voucher selection input
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: const Color(0xFFFAF9F6),
-                child: Row(
-                  children: [
-                    Icon(Iconsax.ticket_discount_copy, color: gold, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Pakai Kode Voucher',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: dark,
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VouchersPage(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  color: cartProvider.selectedVoucher != null
+                      ? const Color(0xFFFBF4EB)
+                      : const Color(0xFFFAF9F6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Iconsax.ticket_discount_copy,
+                        color: cartProvider.selectedVoucher != null
+                            ? const Color(0xFF2E7D32)
+                            : gold,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          cartProvider.selectedVoucher != null
+                              ? '${cartProvider.selectedVoucher!['title']} Dipakai'
+                              : 'Pakai Voucher',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: cartProvider.selectedVoucher != null
+                                ? const Color(0xFF2E7D32)
+                                : dark,
+                          ),
                         ),
                       ),
-                    ),
-                    Icon(Icons.chevron_right, color: gold, size: 20),
-                  ],
+                      if (cartProvider.selectedVoucher != null) ...[
+                        GestureDetector(
+                          onTap: () => cartProvider.removeVoucher(),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.grey,
+                            size: 18,
+                          ),
+                        ),
+                      ] else ...[
+                        Icon(Icons.chevron_right, color: gold, size: 20),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  // ─── WARRRUNG POINTS REDEEM SECTION (PERSIS GAMBAR 2) ─────────────────────
+  Widget _buildRedeemPointsSection(
+    BuildContext context,
+    Color gold,
+    Color dark,
+    Color gray,
+  ) {
+    final rewardProvider = context.watch<RewardProvider>();
+    final int pts = rewardProvider.userPoints;
+
+    return Container(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'waRRRung Points',
+            style: GoogleFonts.poppins(
+              fontSize: 13.5,
+              fontWeight: FontWeight.bold,
+              color: dark,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFECE6D9), width: 1.2),
+            ),
+            child: Row(
+              children: [
+                // Gold Coin Icon
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFD54F),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'W',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF8C5E3C),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Title & Subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Redeem $pts pts',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF8C5E3C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '1 waRRRung Point = 1 Rupiah',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Checkbox Toggle
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _isPointsRedeemed,
+                    activeColor: const Color(0xFF8C5E3C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _isPointsRedeemed = val ?? false;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── MODAL PENJADWALAN PESANAN (PERSIS GAMBAR 1) ───────────────────────────
+  void _showScheduleBottomSheet(BuildContext context) {
+    final List<String> timeSlots = [
+      '17:30', '17:45', '18:00', '18:15', '18:30', '18:45',
+      '19:00', '19:15', '19:30', '19:45', '20:00', '20:15',
+      '20:30', '20:45', '21:00', '21:15', '21:30', '21:45',
+      '22:00', '22:15', '22:30', '22:45', '23:00', '23:15',
+    ];
+
+    int selectedIndex = 16; // Default '21:30' matching Image 1 reference
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final String currentSlot = timeSlots[selectedIndex];
+            final parts = currentSlot.split(':');
+            final int hour = int.parse(parts[0]);
+            final int min = int.parse(parts[1]);
+
+            // End time 15 mins later
+            int endMin = min + 15;
+            int endHour = hour;
+            if (endMin >= 60) {
+              endMin -= 60;
+              endHour += 1;
+            }
+            final String endSlot =
+                '${endHour.toString().padLeft(2, '0')}:${endMin.toString().padLeft(2, '0')}';
+
+            final String serviceTitle = _selectedServiceMode == 'delivery'
+                ? 'Jadwalkan Delivery'
+                : 'Jadwalkan Pickup';
+            final String nowButtonTitle = _selectedServiceMode == 'delivery'
+                ? 'Delivery Sekarang'
+                : 'Pickup Sekarang';
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Close Button Row
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(sheetContext),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Large Clock Icon
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF1A1A1A), width: 3),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.access_time_filled,
+                      color: Color(0xFF1A1A1A),
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Title
+                  Text(
+                    serviceTitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Subtitle Time Window
+                  Text(
+                    'Hari Ini, $currentSlot - $endSlot',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Time Wheel Picker (Persis Gambar 1)
+                  SizedBox(
+                    height: 170,
+                    child: Stack(
+                      children: [
+                        // Center Highlight Container
+                        Center(
+                          child: Container(
+                            height: 44,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        // Wheel Picker
+                        CupertinoPicker(
+                          itemExtent: 44,
+                          scrollController: FixedExtentScrollController(
+                            initialItem: selectedIndex,
+                          ),
+                          onSelectedItemChanged: (index) {
+                            setModalState(() {
+                              selectedIndex = index;
+                            });
+                          },
+                          selectionOverlay: const SizedBox(),
+                          children: timeSlots.map((slot) {
+                            final slotParts = slot.split(':');
+                            return Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 32,
+                                    child: Text(
+                                      slotParts[0],
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  SizedBox(
+                                    width: 32,
+                                    child: Text(
+                                      slotParts[1],
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1A1A1A),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Button 1: Outlined Red Button ("Pickup/Delivery Sekarang")
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _scheduledTime = null;
+                        });
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Pesanan akan diproses sekarang.'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE31A22),
+                        side: const BorderSide(color: Color(0xFFE31A22), width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        nowButtonTitle,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFE31A22),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Button 2: Solid Red Button ("Lanjut")
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final String chosenSlot = timeSlots[selectedIndex];
+                        setState(() {
+                          _scheduledTime = chosenSlot;
+                        });
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Pesanan dijadwalkan pukul $chosenSlot!'),
+                            backgroundColor: const Color(0xFF2E7D32),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE31A22),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Lanjut',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -952,7 +1392,8 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     Color gray,
   ) {
     final locationProvider = context.read<LocationProvider>();
-    final isDeliveryAndAddressEmpty = _selectedServiceMode == 'delivery' &&
+    final isDeliveryAndAddressEmpty =
+        _selectedServiceMode == 'delivery' &&
         locationProvider.selectedDeliveryAddress == null;
 
     final VoidCallback? onPayPressed = isDeliveryAndAddressEmpty
@@ -978,14 +1419,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
             height: 48,
             width: 130,
             child: OutlinedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Fitur penjadwalan akan segera hadir!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
+              onPressed: () => _showScheduleBottomSheet(context),
               style: OutlinedButton.styleFrom(
                 foregroundColor: red,
                 side: BorderSide(color: red, width: 1.2),
@@ -1002,7 +1436,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                     Icon(Iconsax.clock, size: 18, color: red),
                     const SizedBox(width: 6),
                     Text(
-                      'Jadwalkan',
+                      _scheduledTime ?? 'Jadwalkan',
                       style: GoogleFonts.poppins(
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
@@ -1022,8 +1456,12 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               child: ElevatedButton(
                 onPressed: onPayPressed,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDeliveryAndAddressEmpty ? Colors.grey.shade300 : red,
-                  foregroundColor: isDeliveryAndAddressEmpty ? Colors.grey.shade500 : Colors.white,
+                  backgroundColor: isDeliveryAndAddressEmpty
+                      ? Colors.grey.shade300
+                      : red,
+                  foregroundColor: isDeliveryAndAddressEmpty
+                      ? Colors.grey.shade500
+                      : Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1045,10 +1483,16 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   }
 
   // ─── INITIATE MIDTRANS PAYMENT ─────────────────────────────────────────────
-  Future<void> _initiateMidtransPayment(BuildContext context, CartProvider cartProvider) async {
+  Future<void> _initiateMidtransPayment(
+    BuildContext context,
+    CartProvider cartProvider,
+  ) async {
     final locationProvider = context.read<LocationProvider>();
-    final activeOutlet = locationProvider.selectedOutlet ??
-        (locationProvider.outlets.isNotEmpty ? locationProvider.outlets.first : null);
+    final activeOutlet =
+        locationProvider.selectedOutlet ??
+        (locationProvider.outlets.isNotEmpty
+            ? locationProvider.outlets.first
+            : null);
 
     if (activeOutlet == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1061,7 +1505,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     final user = pbService.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan login terlebih dahulu untuk melakukan pesanan.')),
+        const SnackBar(
+          content: Text(
+            'Silakan login terlebih dahulu untuk melakukan pesanan.',
+          ),
+        ),
       );
       return;
     }
@@ -1081,10 +1529,16 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
         };
       }).toList();
 
+      final rewardProvider = context.read<RewardProvider>();
       final double subtotal = cartProvider.totalPrice;
-      final double deliveryFee = _selectedServiceMode == 'delivery' ? 10000.0 : 0.0;
+      final double deliveryFee = _selectedServiceMode == 'delivery'
+          ? 10000.0
+          : 0.0;
       final double shoppingBagFee = _hasShoppingBag ? 1000.0 : 0.0;
-      final double totalPayment = subtotal + deliveryFee + shoppingBagFee;
+      final double voucherDiscount = cartProvider.voucherDiscountAmount;
+      final double pointDiscount = _isPointsRedeemed ? rewardProvider.userPoints.toDouble() : 0.0;
+      final double rawTotal = subtotal + deliveryFee + shoppingBagFee - voucherDiscount - pointDiscount;
+      final double totalPayment = rawTotal > 0 ? rawTotal : 0.0;
 
       // 2. Kirim request checkout ke backend PocketBase Custom Endpoint
       final response = await pbService.client.send(
@@ -1094,7 +1548,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           'user_id': user.id,
           'outlet_id': activeOutlet.id,
           'order_type': _selectedServiceMode,
-          'delivery_address': _selectedServiceMode == 'delivery' ? (locationProvider.selectedDeliveryAddress ?? '') : '',
+          'delivery_address': _selectedServiceMode == 'delivery'
+              ? (locationProvider.selectedDeliveryAddress ?? '')
+              : '',
           'subtotal': subtotal,
           'delivery_fee': deliveryFee,
           'discount_fee': cartProvider.totalDiscount,
@@ -1110,7 +1566,8 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
 
       debugPrint('Midtrans Checkout Response: $response');
 
-      if (response is Map<String, dynamic> && response.containsKey('order_id')) {
+      if (response is Map<String, dynamic> &&
+          response.containsKey('order_id')) {
         final String orderId = response['order_id'];
         final String paymentType = response['payment_type'] ?? '';
         final String deeplinkUrl = response['deeplink_url'] ?? '';
@@ -1120,23 +1577,31 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
 
         if (paymentType == 'qris' && qrCodeUrl.isNotEmpty) {
           if (context.mounted) {
-            _showQrisDialog(context, cartProvider, orderId, qrCodeUrl, qrString);
+            _showQrisDialog(
+              context,
+              cartProvider,
+              orderId,
+              qrCodeUrl,
+              qrString,
+            );
           }
         } else if (deeplinkUrl.isNotEmpty) {
           if (context.mounted) {
             _showWaitingPaymentSheet(context, cartProvider, orderId);
           }
           await Future.delayed(const Duration(milliseconds: 150));
-          
+
           try {
             final Uri paymentUri = Uri.parse(deeplinkUrl);
             final bool launched = await launchUrl(
               paymentUri,
               mode: LaunchMode.externalNonBrowserApplication,
             );
-            
+
             if (!launched) {
-              debugPrint('Gagal membuka aplikasi secara langsung (mungkin tidak terinstall). Mencoba fallback...');
+              debugPrint(
+                'Gagal membuka aplikasi secara langsung (mungkin tidak terinstall). Mencoba fallback...',
+              );
               if (redirectUrl.isNotEmpty && context.mounted) {
                 _isWebViewOpen = true;
                 Navigator.push(
@@ -1153,11 +1618,19 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               } else if (qrCodeUrl.isNotEmpty && context.mounted) {
                 // Tutup waiting sheet dan tampilkan QRIS
                 Navigator.of(context).pop();
-                _showQrisDialog(context, cartProvider, orderId, qrCodeUrl, qrString);
+                _showQrisDialog(
+                  context,
+                  cartProvider,
+                  orderId,
+                  qrCodeUrl,
+                  qrString,
+                );
               }
             }
           } catch (e) {
-            debugPrint('Error saat mencoba membuka deep link: $e. Membuka fallback...');
+            debugPrint(
+              'Error saat mencoba membuka deep link: $e. Membuka fallback...',
+            );
             if (redirectUrl.isNotEmpty && context.mounted) {
               _isWebViewOpen = true;
               Navigator.push(
@@ -1173,7 +1646,13 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
               });
             } else if (qrCodeUrl.isNotEmpty && context.mounted) {
               Navigator.of(context).pop();
-              _showQrisDialog(context, cartProvider, orderId, qrCodeUrl, qrString);
+              _showQrisDialog(
+                context,
+                cartProvider,
+                orderId,
+                qrCodeUrl,
+                qrString,
+              );
             }
           }
         } else if (redirectUrl.isNotEmpty) {
@@ -1203,15 +1682,12 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
       } else {
         throw Exception('Response format dari server tidak valid.');
       }
-
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuat pesanan: ${e.toString()}')),
-        );
+        showConnectionErrorModal(context);
       }
     }
   }
@@ -1236,26 +1712,32 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     }
 
     // Daftarkan subskripsi real-time ke order record
-    pbService.client.collection('orders').subscribe(orderId, (event) {
-      if (event.action == 'update') {
-        final status = event.record?.getStringValue('status');
-        if (status == 'processing') {
-          _storedCartProvider = cartProvider;
-          if (_isAppInForeground) {
-            // Jika aplikasi di foreground, langsung jalankan UI transition
-            _handlePaymentSuccessTransition();
-          } else {
-            // Jika aplikasi di background, tunda navigasi sampai aplikasi di-resume
-            _paymentSuccessful = true;
-            debugPrint('Pembayaran sukses terdeteksi di background. Navigasi ditunda.');
+    pbService.client
+        .collection('orders')
+        .subscribe(orderId, (event) {
+          if (event.action == 'update') {
+            final status = event.record?.getStringValue('status');
+            if (status == 'processing') {
+              _storedCartProvider = cartProvider;
+              if (_isAppInForeground) {
+                // Jika aplikasi di foreground, langsung jalankan UI transition
+                _handlePaymentSuccessTransition();
+              } else {
+                // Jika aplikasi di background, tunda navigasi sampai aplikasi di-resume
+                _paymentSuccessful = true;
+                debugPrint(
+                  'Pembayaran sukses terdeteksi di background. Navigasi ditunda.',
+                );
+              }
+            }
           }
-        }
-      }
-    }).then((unsub) {
-      _unsubscribeOrder = unsub;
-    }).catchError((err) {
-      debugPrint('Error subskripsi real-time: $err');
-    });
+        })
+        .then((unsub) {
+          _unsubscribeOrder = unsub;
+        })
+        .catchError((err) {
+          debugPrint('Error subskripsi real-time: $err');
+        });
 
     showDialog(
       context: context,
@@ -1302,7 +1784,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
 
                     // QRIS Logo atau Info
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(8),
@@ -1310,7 +1795,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.qr_code_2, color: Colors.blue, size: 20),
+                          const Icon(
+                            Icons.qr_code_2,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Gopay, OVO, DANA, ShopeePay, dll',
@@ -1331,7 +1820,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.03),
@@ -1361,7 +1853,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                             child: Center(
                               child: Text(
                                 'Gagal memuat QRIS. Coba ketuk ulang tombol pembayaran.',
-                                style: TextStyle(color: Colors.red, fontSize: 11),
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 11,
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -1399,9 +1894,12 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                       child: ElevatedButton(
                         onPressed: () async {
                           try {
-                            final order = await pbService.client.collection('orders').getOne(orderId);
+                            final order = await pbService.client
+                                .collection('orders')
+                                .getOne(orderId);
                             if (!dialogContext.mounted) return;
-                            if (order.getStringValue('status') == 'processing') {
+                            if (order.getStringValue('status') ==
+                                'processing') {
                               if (!_isTransitioned) {
                                 _isTransitioned = true;
                                 if (_unsubscribeOrder != null) {
@@ -1417,7 +1915,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                             } else {
                               ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Pembayaran belum terdeteksi. Silakan bayar terlebih dahulu.'),
+                                  content: Text(
+                                    'Pembayaran belum terdeteksi. Silakan bayar terlebih dahulu.',
+                                  ),
                                   duration: Duration(seconds: 2),
                                 ),
                               );
@@ -1425,7 +1925,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           } catch (e) {
                             if (dialogContext.mounted) {
                               ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                SnackBar(content: Text('Gagal mengecek status: $e')),
+                                SnackBar(
+                                  content: Text('Gagal mengecek status: $e'),
+                                ),
                               );
                             }
                           }
@@ -1480,7 +1982,11 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   }
 
   // ─── WAITING PAYMENT SHEET ──────────────────────────────────────────────────
-  void _showWaitingPaymentSheet(BuildContext context, CartProvider cartProvider, String orderId) {
+  void _showWaitingPaymentSheet(
+    BuildContext context,
+    CartProvider cartProvider,
+    String orderId,
+  ) {
     final pbService = PocketBaseService();
     _isTransitioned = false;
     _paymentSuccessful = false;
@@ -1493,26 +1999,32 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     }
 
     // Daftarkan subskripsi real-time ke order record
-    pbService.client.collection('orders').subscribe(orderId, (event) {
-      if (event.action == 'update') {
-        final status = event.record?.getStringValue('status');
-        if (status == 'processing') {
-          _storedCartProvider = cartProvider;
-          if (_isAppInForeground) {
-            // Jika aplikasi di foreground, langsung jalankan UI transition
-            _handlePaymentSuccessTransition();
-          } else {
-            // Jika aplikasi di background, tunda navigasi sampai aplikasi di-resume
-            _paymentSuccessful = true;
-            debugPrint('Pembayaran sukses terdeteksi di background. Navigasi ditunda.');
+    pbService.client
+        .collection('orders')
+        .subscribe(orderId, (event) {
+          if (event.action == 'update') {
+            final status = event.record?.getStringValue('status');
+            if (status == 'processing') {
+              _storedCartProvider = cartProvider;
+              if (_isAppInForeground) {
+                // Jika aplikasi di foreground, langsung jalankan UI transition
+                _handlePaymentSuccessTransition();
+              } else {
+                // Jika aplikasi di background, tunda navigasi sampai aplikasi di-resume
+                _paymentSuccessful = true;
+                debugPrint(
+                  'Pembayaran sukses terdeteksi di background. Navigasi ditunda.',
+                );
+              }
+            }
           }
-        }
-      }
-    }).then((unsub) {
-      _unsubscribeOrder = unsub;
-    }).catchError((err) {
-      debugPrint('Error subskripsi real-time: $err');
-    });
+        })
+        .then((unsub) {
+          _unsubscribeOrder = unsub;
+        })
+        .catchError((err) {
+          debugPrint('Error subskripsi real-time: $err');
+        });
 
     showModalBottomSheet(
       context: context,
@@ -1533,7 +2045,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                   width: 44,
                   height: 44,
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE31A22)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFFE31A22),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1549,10 +2063,13 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                 Text(
                   'Silakan selesaikan pembayaran Anda pada halaman Midtrans yang terbuka. Aplikasi akan otomatis mendeteksi ketika pembayaran Anda lunas.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 12.5, color: Colors.grey.shade600),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.5,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Cek status pembayaran secara manual
                 SizedBox(
                   width: double.infinity,
@@ -1560,7 +2077,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                   child: ElevatedButton(
                     onPressed: () async {
                       try {
-                        final order = await pbService.client.collection('orders').getOne(orderId);
+                        final order = await pbService.client
+                            .collection('orders')
+                            .getOne(orderId);
                         if (!sheetContext.mounted) return;
                         if (order.getStringValue('status') == 'processing') {
                           if (!_isTransitioned) {
@@ -1579,7 +2098,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                         } else {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             const SnackBar(
-                              content: Text('Pembayaran belum terdeteksi. Silakan bayar terlebih dahulu.'),
+                              content: Text(
+                                'Pembayaran belum terdeteksi. Silakan bayar terlebih dahulu.',
+                              ),
                               duration: Duration(seconds: 2),
                             ),
                           );
@@ -1587,7 +2108,9 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                       } catch (e) {
                         if (sheetContext.mounted) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(content: Text('Gagal mengecek status: $e')),
+                            SnackBar(
+                              content: Text('Gagal mengecek status: $e'),
+                            ),
                           );
                         }
                       }
@@ -1595,7 +2118,10 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFFE31A22),
-                      side: const BorderSide(color: Color(0xFFE31A22), width: 1.2),
+                      side: const BorderSide(
+                        color: Color(0xFFE31A22),
+                        width: 1.2,
+                      ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -1611,7 +2137,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Batal checkout
                 SizedBox(
                   width: double.infinity,
@@ -1698,7 +2224,8 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                     Navigator.pop(context);
                     // Arahkan ke tab riwayat (Tab menu Pesanan -> Riwayat)
                     final controller = Get.find<NavigationController>();
-                    controller.selectedIndex.value = 2; // Go to Pesanan/Cart tab (wait! in navigation_menu we mapped Pesanan to index 2)
+                    controller.selectedIndex.value =
+                        2; // Go to Pesanan/Cart tab (wait! in navigation_menu we mapped Pesanan to index 2)
 
                     if (!widget.isEmbedded) {
                       Navigator.popUntil(context, (route) => route.isFirst);
@@ -1947,7 +2474,7 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                                 color: gold.withValues(alpha: 0.1),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
-                              )
+                              ),
                             ]
                           : null,
                     ),
@@ -1964,18 +2491,26 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
                           ),
                           child: Center(
                             child: m['logo'] == 'QRIS'
-                                ? Icon(Icons.qr_code_2, color: m['color'], size: 22)
+                                ? Icon(
+                                    Icons.qr_code_2,
+                                    color: m['color'],
+                                    size: 22,
+                                  )
                                 : m['logo'] == 'Card'
-                                    ? Icon(Icons.credit_card, color: m['color'], size: 18)
-                                    : Text(
-                                        m['logo'],
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w900,
-                                          color: m['color'],
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                      ),
+                                ? Icon(
+                                    Icons.credit_card,
+                                    color: m['color'],
+                                    size: 18,
+                                  )
+                                : Text(
+                                    m['logo'],
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: m['color'],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
                           ),
                         ),
                         // Method Name
@@ -2070,12 +2605,22 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
   }
 
   // ─── RINGKASAN PEMBAYARAN ──────────────────────────────────────────────────
-  Widget _buildPaymentSummarySection(CartProvider cartProvider, Color dark, Color gray) {
+  Widget _buildPaymentSummarySection(
+    CartProvider cartProvider,
+    Color dark,
+    Color gray,
+  ) {
+    final rewardProvider = context.watch<RewardProvider>();
     final double subtotal = cartProvider.totalPrice;
-    final double deliveryFee = _selectedServiceMode == 'delivery' ? 10000.0 : 0.0;
+    final double deliveryFee = _selectedServiceMode == 'delivery'
+        ? 10000.0
+        : 0.0;
     final double shoppingBagFee = _hasShoppingBag ? 1000.0 : 0.0;
-    final double discount = cartProvider.totalDiscount;
-    final double grandTotal = subtotal + deliveryFee + shoppingBagFee;
+    final double voucherDiscount = cartProvider.voucherDiscountAmount;
+    final double pointDiscount = _isPointsRedeemed ? rewardProvider.userPoints.toDouble() : 0.0;
+    final double discount = cartProvider.totalDiscount + pointDiscount;
+    final double rawGrandTotal = subtotal + deliveryFee + shoppingBagFee - voucherDiscount - pointDiscount;
+    final double grandTotal = rawGrandTotal > 0 ? rawGrandTotal : 0.0;
 
     final String formattedSubtotal =
         'Rp${subtotal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
@@ -2114,7 +2659,13 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
           ],
           if (discount > 0) ...[
             const SizedBox(height: 8),
-            _buildSummaryRow('Promo', formattedDiscount, const Color(0xFF00897B), gray, isDiscount: true),
+            _buildSummaryRow(
+              'Promo',
+              formattedDiscount,
+              const Color(0xFF00897B),
+              gray,
+              isDiscount: true,
+            ),
           ],
           const Divider(height: 24, thickness: 1),
           Row(
@@ -2143,7 +2694,13 @@ class _OrderConfirmationPageState extends State<OrderConfirmationPage> with Widg
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, Color labelColor, Color valueColor, {bool isDiscount = false}) {
+  Widget _buildSummaryRow(
+    String label,
+    String value,
+    Color labelColor,
+    Color valueColor, {
+    bool isDiscount = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

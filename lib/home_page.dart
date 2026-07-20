@@ -9,6 +9,9 @@ import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/location_provider.dart';
 import 'package:warrrung_app/location_selection_page.dart';
 import 'package:warrrung_app/product_detail_page.dart';
+import 'package:warrrung_app/core/widgets/skeleton_loading_widget.dart';
+import 'package:warrrung_app/core/widgets/error_state_widget.dart';
+import 'package:warrrung_app/providers/reward_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -81,8 +84,19 @@ class _HomePageState extends State<HomePage> {
         children: [
           // Scrollable content with sticky header
           Expanded(
-            child: CustomScrollView(
-              slivers: [
+            child: RefreshIndicator(
+              onRefresh: () async {
+                final locationProvider = Provider.of<LocationProvider>(
+                  context,
+                  listen: false,
+                );
+                final selectedOutletId = locationProvider.selectedOutlet?.id;
+                await homeProvider.loadHomeData(outletId: selectedOutletId);
+              },
+              color: _primaryRed,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _StickyHeaderDelegate(
@@ -122,6 +136,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
+        ),
 
           // Sticky CTA Button (only if not logged in)
           if (!authProvider.isAuthenticated) _buildStickyButton(),
@@ -720,106 +735,57 @@ class _HomePageState extends State<HomePage> {
 
   // ─── LOADING STATE UI ─────────────────────────────────────────────
   Widget _buildLoadingState() {
-    return Column(
-      children: [
-        const SizedBox(height: 60),
-        const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(_primaryRed),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Memuat hidangan spesial...',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: _textGray,
-          ),
-        ),
-        const SizedBox(height: 60),
-      ],
-    );
+    return const HomeSkeletonWidget();
   }
 
   // ─── ERROR STATE UI ───────────────────────────────────────────────
   Widget _buildErrorState(String message, VoidCallback onRetry) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFEBEE),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.shade100, width: 1.5),
-        ),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: _primaryRed,
-              size: 48,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Aduh, Terjadi Kesalahan!',
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: _primaryRed,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: _textDark,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: Text(
-                'Coba Lagi',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryRed,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ContentErrorCard(
+      title: 'Gagal Memuat Konten',
+      message: 'Coba lagi atau klik Muat Ulang',
+      onRetry: () {
+        showConnectionErrorModal(
+          context,
+          onConfirm: () {
+            final locationProvider = Provider.of<LocationProvider>(
+              context,
+              listen: false,
+            );
+            final selectedOutletId = locationProvider.selectedOutlet?.id;
+            Provider.of<HomeProvider>(
+              context,
+              listen: false,
+            ).loadHomeData(outletId: selectedOutletId);
+          },
+        );
+      },
     );
   }
 
   // ─── VOUCHER / DISKON & CASHBACK SECTION ──────────────────────────
+  // ─── VOUCHER / DISKON & CASHBACK SECTION ──────────────────────────
   Widget _buildVoucherSection() {
     final vouchers = [
       {
+        'id': 'v_banner3',
+        'tag': 'Voucher Diskon',
+        'title': 'Diskon Rp20.000',
+        'subtitle': 'Min. belanja Rp50.000',
+      },
+      {
+        'id': 'v_ongkir',
         'tag': 'Ongkir',
         'title': 'Ongkir Flat Rp10.000',
         'subtitle': 'waRRRung Express',
       },
       {
+        'id': 'v_cashback',
         'tag': 'Cashback',
         'title': 'Cashback 20% s/d 25rb',
         'subtitle': 'waRRRung Pay',
       },
       {
+        'id': 'v_diskon30',
         'tag': 'Diskon',
         'title': 'Diskon 30% Menu Baru',
         'subtitle': 'Min. belanja Rp50.000',
@@ -868,7 +834,7 @@ class _HomePageState extends State<HomePage> {
             itemCount: vouchers.length,
             itemBuilder: (context, index) {
               final voucher = vouchers[index];
-              return _buildVoucherCard(voucher);
+              return _buildVoucherCard(context, voucher);
             },
           ),
         ),
@@ -876,9 +842,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildVoucherCard(Map<String, String> voucher) {
+  Widget _buildVoucherCard(BuildContext context, Map<String, String> voucher) {
+    final authProvider = context.watch<AuthProvider>();
+    final rewardProvider = context.watch<RewardProvider>();
+    final bool isClaimed = rewardProvider.isVoucherClaimed(voucher['id']!);
+
     return Container(
-      width: 220,
+      width: 230,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -917,6 +887,8 @@ class _HomePageState extends State<HomePage> {
           // Title
           Text(
             voucher['title']!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -929,25 +901,53 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                voucher['subtitle']!,
-                style: GoogleFonts.poppins(fontSize: 11, color: _textGray),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: _deepRed,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              Expanded(
                 child: Text(
-                  'Klaim',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                  voucher['subtitle']!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(fontSize: 11, color: _textGray),
+                ),
+              ),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () {
+                  rewardProvider.claimVoucher(
+                    context,
+                    authProvider.isAuthenticated,
+                    voucher['id']!,
+                    voucher['title']!,
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isClaimed ? const Color(0xFF2E7D32) : _deepRed,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isClaimed) ...[
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        isClaimed ? 'Diklaim' : 'Klaim',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

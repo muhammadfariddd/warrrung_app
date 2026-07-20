@@ -79,4 +79,14 @@ whatsapp_gateway/*.log
 pocketbase/pb_hooks/secrets.json
 
 # Chat history imports
-Saya mengalami error*.md
+Saya mengalami error*.md
+
+# Release Secrets & Build Binaries
+.env
+*.env
+key.properties
+*.keystore
+*.jks
+*.apk
+*.aab
+*.ipa

@@ -8,6 +8,7 @@ class LocationProvider extends ChangeNotifier {
   List<OutletModel> _allOutlets = [];
   List<OutletModel> _filteredOutlets = [];
   bool _isLoading = false;
+  String? _errorMessage;
   OutletModel? _selectedOutlet;
   
   // Tab selection: 'pickup' or 'delivery'
@@ -17,6 +18,8 @@ class LocationProvider extends ChangeNotifier {
 
   List<OutletModel> get outlets => _filteredOutlets;
   bool get isLoading => _isLoading;
+  bool get hasError => _errorMessage != null;
+  String? get errorMessage => _errorMessage;
   OutletModel? get selectedOutlet => _selectedOutlet;
   String get activeTab => _activeTab;
   String get searchQuery => _searchQuery;
@@ -34,6 +37,7 @@ class LocationProvider extends ChangeNotifier {
   /// Fetches outlets and initializes state
   Future<void> loadOutlets() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     debugPrint('[LOCATION] Memulai loadOutlets dari PocketBase...');
@@ -45,6 +49,7 @@ class LocationProvider extends ChangeNotifier {
       debugPrint('[LOCATION] Gagal memuat outlet: $e');
       _allOutlets = [];
       _filteredOutlets = [];
+      _errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('NetworkFailure: ', '').replaceAll('ServerFailure: ', '').replaceAll('Failure: ', '');
     } finally {
       _isLoading = false;
       notifyListeners();

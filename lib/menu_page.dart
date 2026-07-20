@@ -10,6 +10,8 @@ import 'package:warrrung_app/data/models/product_model.dart';
 import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
 import 'package:warrrung_app/product_detail_page.dart';
+import 'package:warrrung_app/core/widgets/skeleton_loading_widget.dart';
+import 'package:warrrung_app/core/widgets/error_state_widget.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -326,86 +328,87 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Widget _buildMenuContent(HomeState homeState, HomeProvider homeProvider) {
+    final selectedOutlet = context.read<LocationProvider>().selectedOutlet;
+
+    Widget content;
     if (homeState is HomeStateLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(_primaryRed),
+      content = const MenuSkeletonWidget();
+    } else if (homeState is HomeStateError) {
+      content = SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.only(top: 40.0),
+          child: ContentErrorCard(
+            title: 'Gagal Memuat Konten',
+            message: 'Coba lagi atau klik Muat Ulang',
+            onRetry: () {
+              showConnectionErrorModal(
+                context,
+                onConfirm: () {
+                  homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+                },
+              );
+            },
+          ),
         ),
       );
-    }
-
-    if (homeState is HomeStateError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Gagal memuat menu',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                color: _textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                final selectedOutlet = context
-                    .read<LocationProvider>()
-                    .selectedOutlet;
-                homeProvider.loadHomeData(outletId: selectedOutlet?.id);
-              },
-              child: const Text(
-                'Coba Lagi',
-                style: TextStyle(color: _primaryRed),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (homeState is HomeStateLoaded) {
+    } else if (homeState is HomeStateLoaded) {
       final categories = homeState.categories;
       final productsMap = homeState.productsByCategory;
 
       if (categories.isEmpty) {
-        return const Center(child: Text('Tidak ada kategori menu'));
+        content = const Center(child: Text('Tidak ada kategori menu'));
+      } else {
+        // Initialize active category if not set
+        _activeCategoryName ??= categories.first.name;
+
+        // Ensure active category actually exists
+        if (!productsMap.containsKey(_activeCategoryName)) {
+          _activeCategoryName = categories.first.name;
+        }
+
+        final activeProducts = productsMap[_activeCategoryName] ?? [];
+
+        content = activeProducts.isEmpty
+            ? SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 80.0),
+                  child: Center(
+                    child: Text(
+                      'Menu belum tersedia di kategori ini.',
+                      style: GoogleFonts.poppins(color: _textGray, fontSize: 13),
+                    ),
+                  ),
+                ),
+              )
+            : GridView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.70,
+                ),
+                itemCount: activeProducts.length,
+                itemBuilder: (context, index) {
+                  final product = activeProducts[index];
+                  return _buildProductCardGrid(context, product);
+                },
+              );
       }
-
-      // Initialize active category if not set
-      _activeCategoryName ??= categories.first.name;
-
-      // Ensure active category actually exists
-      if (!productsMap.containsKey(_activeCategoryName)) {
-        _activeCategoryName = categories.first.name;
-      }
-
-      final activeProducts = productsMap[_activeCategoryName] ?? [];
-
-      return activeProducts.isEmpty
-          ? Center(
-              child: Text(
-                'Menu belum tersedia di kategori ini.',
-                style: GoogleFonts.poppins(color: _textGray, fontSize: 13),
-              ),
-            )
-          : GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.70,
-              ),
-              itemCount: activeProducts.length,
-              itemBuilder: (context, index) {
-                final product = activeProducts[index];
-                return _buildProductCardGrid(context, product);
-              },
-            );
+    } else {
+      content = const SizedBox.shrink();
     }
 
-    return const SizedBox.shrink();
+    return RefreshIndicator(
+      onRefresh: () async {
+        await homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+      },
+      color: _primaryRed,
+      child: content,
+    );
   }
 
   Widget _buildProductCardGrid(BuildContext context, ProductModel product) {

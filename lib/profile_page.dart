@@ -2,9 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
-import 'package:warrrung_app/core/widgets/custom_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:warrrung_app/core/widgets/login_bottom_sheet.dart';
 import 'package:warrrung_app/providers/auth_provider.dart';
+import 'package:warrrung_app/providers/reward_provider.dart';
+import 'package:warrrung_app/daily_checkin_detail_page.dart';
+import 'package:warrrung_app/vouchers_page.dart';
+import 'package:warrrung_app/inbox_page.dart';
+import 'package:warrrung_app/select_address_page.dart';
+import 'package:warrrung_app/language_settings_page.dart';
+import 'package:warrrung_app/payment_methods_page.dart';
+import 'package:warrrung_app/help_center_page.dart';
+import 'package:warrrung_app/privacy_policy_page.dart';
+import 'package:warrrung_app/terms_of_service_page.dart';
+import 'package:warrrung_app/report_issue_page.dart';
+import 'package:warrrung_app/about_warrrung_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -32,7 +44,6 @@ class ProfilePage extends StatelessWidget {
     final String name = user?.data['name'] as String? ?? '';
     final String phone = user?.data['phone_number'] as String? ?? '';
     final String email = user?.data['email'] as String? ?? '';
-    final int points = user?.data['points'] as int? ?? 0;
     final String role = user?.data['role'] as String? ?? 'customer';
 
     // Display name: prioritizes name, then phone, then email, then Guest
@@ -59,7 +70,7 @@ class ProfilePage extends StatelessWidget {
                   bottom: -24,
                   left: 0,
                   right: 0,
-                  child: _buildStatsCard(isLoggedIn, points, role),
+                  child: _buildStatsCard(context, isLoggedIn, role),
                 ),
               ],
             ),
@@ -67,9 +78,6 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(
               height: 30,
             ), // Spacing to push down content below the overlapping card
-            // ─── 3. WHATSAPP PROMO BANNER (GUEST ONLY) ──────────────────────
-            if (!isLoggedIn) _buildWhatsAppPromo(context),
-
             // ─── 4. DAILY CHECK-IN SECTION ──────────────────────────────────
             _buildDailyCheckIn(context, isLoggedIn),
 
@@ -80,24 +88,52 @@ class ProfilePage extends StatelessWidget {
               title: 'Akun',
               items: [
                 _MenuListItem(
+                  icon: Iconsax.ticket_discount,
+                  title: 'Voucher Saya',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const VouchersPage(),
+                      ),
+                    );
+                  },
+                ),
+                _MenuListItem(
                   icon: Iconsax.sms,
                   title: 'Kotak Masuk',
-                  onTap: () => _showComingSoon(context, 'Kotak Masuk'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const InboxPage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.location,
                   title: 'Alamat Pengiriman',
-                  onTap: () => _showComingSoon(context, 'Alamat Pengiriman'),
-                ),
-                _MenuListItem(
-                  icon: Iconsax.scan,
-                  title: 'Scan Merchandise',
-                  onTap: () => _showComingSoon(context, 'Scan Merchandise'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SelectAddressPage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.global,
                   title: 'Ubah Bahasa Aplikasi',
-                  onTap: () => _showComingSoon(context, 'Ubah Bahasa'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LanguageSettingsPage(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -108,20 +144,22 @@ class ProfilePage extends StatelessWidget {
               title: 'Pesan',
               items: [
                 _MenuListItem(
-                  icon: Iconsax.document_text,
-                  title: 'Riwayat Pesanan',
-                  onTap: () => _showComingSoon(context, 'Riwayat Pesanan'),
-                ),
-                _MenuListItem(
                   icon: Iconsax.card,
                   title: 'Metode Pembayaran',
-                  onTap: () => _showComingSoon(context, 'Metode Pembayaran'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PaymentMethodsPage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.box,
                   title: 'Pesanan Jumlah Besar',
                   showBadge: true,
-                  onTap: () => _showComingSoon(context, 'Pesanan Jumlah Besar'),
+                  onTap: () => _launchWhatsAppBulkOrder(context),
                 ),
               ],
             ),
@@ -129,40 +167,67 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 16),
 
             _buildMenuListSection(
-              title: 'Warrrung',
+              title: 'waRRRung',
               items: [
                 _MenuListItem(
                   icon: Iconsax.info_circle,
                   title: 'Bantuan',
-                  onTap: () => _showComingSoon(context, 'Bantuan'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HelpCenterPage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.shield_security,
                   title: 'Kebijakan Privasi',
-                  onTap: () => _showComingSoon(context, 'Kebijakan Privasi'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PrivacyPolicyPage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.document_text_1,
                   title: 'Ketentuan Layanan',
-                  onTap: () => _showComingSoon(context, 'Ketentuan Layanan'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TermsOfServicePage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.message_question,
                   title: 'Lapor Masalah',
-                  onTap: () => _showComingSoon(context, 'Lapor Masalah'),
-                ),
-                _MenuListItem(
-                  customIcon: WhatsAppIcon(
-                    size: 22,
-                    color: Colors.grey.shade700,
-                  ),
-                  title: 'Layanan WhatsApp',
-                  onTap: () => _showComingSoon(context, 'WhatsApp Support'),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReportIssuePage(),
+                      ),
+                    );
+                  },
                 ),
                 _MenuListItem(
                   icon: Iconsax.setting_2,
-                  title: 'Tentang Warrrung',
-                  onTap: () => _showComingSoon(context, 'Tentang Warrrung'),
+                  title: 'Tentang waRRRung',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AboutWarrrungPage(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -363,7 +428,9 @@ class ProfilePage extends StatelessWidget {
   }
 
   // ─── USER STATS CARD ──────────────────────────────────────────────
-  Widget _buildStatsCard(bool isLoggedIn, int points, String role) {
+  Widget _buildStatsCard(BuildContext context, bool isLoggedIn, String role) {
+    final rewardProvider = context.watch<RewardProvider>();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20.0),
       decoration: BoxDecoration(
@@ -406,8 +473,8 @@ class ProfilePage extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           isLoggedIn
-                              ? (role == 'admin' ? 'Admin' : 'Silver')
-                              : 'Silver 0%',
+                              ? (role == 'admin' ? 'Admin' : 'Silver 0%')
+                              : 'Silver -%',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: const Color(0xFF1A1A1A),
@@ -466,7 +533,9 @@ class ProfilePage extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          isLoggedIn ? '$points pts' : '0 pts',
+                          isLoggedIn
+                              ? '${rewardProvider.userPoints} pts'
+                              : '- pts',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: const Color(0xFF1A1A1A),
@@ -485,111 +554,10 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // ─── WHATSAPP PROMO BANNER ────────────────────────────────────────
-  Widget _buildWhatsAppPromo(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9), // Light green container
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.stars_rounded,
-                          color: Color(0xFF2E7D32),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Promo Spesial Buat Member!',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF2E7D32),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Gabung sekarang dan jangan lewatkan penawaran menarik setiap saat.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11.5,
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Cup vector mockup
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Iconsax.receipt_disscount_copy,
-                  color: Color(0xFF2E7D32),
-                  size: 32,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Green WhatsApp Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () => LoginBottomSheet.show(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const WhatsAppIcon(size: 20, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Gabung Sekarang',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ─── DAILY CHECK-IN SECTION ───────────────────────────────────────
   Widget _buildDailyCheckIn(BuildContext context, bool isLoggedIn) {
+    final rewardProvider = context.watch<RewardProvider>();
+
     return Container(
       margin: const EdgeInsets.only(top: 16.0),
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -612,7 +580,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Berakhir 30 Jun 2026',
+                    'Berakhir 31 Jul 2026',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
                       color: Colors.grey.shade500,
@@ -622,7 +590,14 @@ class ProfilePage extends StatelessWidget {
                 ],
               ),
               GestureDetector(
-                onTap: () => _showComingSoon(context, 'Daily Check-In Detail'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DailyCheckInDetailPage(),
+                    ),
+                  );
+                },
                 child: Text(
                   'Detail',
                   style: GoogleFonts.poppins(
@@ -646,11 +621,24 @@ class ProfilePage extends StatelessWidget {
               itemCount: 7,
               itemBuilder: (context, index) {
                 final int day = index + 1;
-                // Alternate between point coin and voucher icons
                 final bool isVoucher = day == 3 || day == 6 || day == 7;
                 final bool isChecked =
-                    isLoggedIn &&
-                    day <= 2; // Simulating first 2 days checked if logged in
+                    isLoggedIn && rewardProvider.isDayClaimed(day);
+                final bool isGuestActive = !isLoggedIn && day == 1;
+
+                Color cardBg = Colors.white;
+                Color borderColor = Colors.grey.shade200;
+                double borderWidth = 1.0;
+
+                if (isChecked) {
+                  cardBg = const Color(0xFFFBF4EB);
+                  borderColor = const Color(0xFF8C5E3C).withValues(alpha: 0.6);
+                  borderWidth = 1.5;
+                } else if (isGuestActive) {
+                  cardBg = Colors.white;
+                  borderColor = const Color(0xFF8C5E3C);
+                  borderWidth = 1.5;
+                }
 
                 return Container(
                   width: 72,
@@ -660,13 +648,8 @@ class ProfilePage extends StatelessWidget {
                     bottom: 4.0,
                   ),
                   decoration: BoxDecoration(
-                    color: isChecked ? const Color(0xFFFFFDF9) : Colors.white,
-                    border: Border.all(
-                      color: isChecked
-                          ? const Color(0xFF8C5E3C).withValues(alpha: 0.6)
-                          : Colors.grey.shade200,
-                      width: isChecked ? 1.5 : 1,
-                    ),
+                    color: cardBg,
+                    border: Border.all(color: borderColor, width: borderWidth),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -680,42 +663,43 @@ class ProfilePage extends StatelessWidget {
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
-                        if (!isLoggedIn) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Silakan masuk terlebih dahulu untuk Check-In.',
-                              ),
-                            ),
-                          );
-                          LoginBottomSheet.show(context);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Berhasil Check-In Hari ke-$day!'),
-                            ),
-                          );
-                        }
+                        rewardProvider.claimCheckIn(context, isLoggedIn, day);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Small coin / voucher icon
-                          if (isVoucher)
-                            const Icon(
-                              Iconsax.receipt_disscount,
-                              color: Color(0xFFE57373),
-                              size: 20,
-                            )
-                          else
+                          if (isChecked) ...[
+                            // Gold Checkmark Circle Icon
                             Container(
-                              width: 18,
-                              height: 18,
+                              width: 22,
+                              height: 22,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF8C5E3C),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                            ),
+                          ] else if (isVoucher) ...[
+                            // Voucher Icon
+                            const Icon(
+                              Iconsax.ticket_discount,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                          ] else ...[
+                            // Coin Icon Base
+                            Container(
+                              width: 20,
+                              height: 20,
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFFFFD54F,
-                                ).withValues(alpha: isChecked ? 1.0 : 0.6),
+                                color: isGuestActive
+                                    ? const Color(0xFFFFD54F)
+                                    : Colors.grey.shade300,
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
@@ -723,29 +707,40 @@ class ProfilePage extends StatelessWidget {
                                 'W',
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
-                                  color: const Color(0xFF8C5E3C),
+                                  color: isGuestActive
+                                      ? const Color(0xFF8C5E3C)
+                                      : Colors.white,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ),
+                          ],
                           const SizedBox(height: 6),
+
                           Text(
                             isVoucher ? 'Voucher' : '+25',
                             style: GoogleFonts.poppins(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: isChecked
+                              color: (isChecked || isGuestActive)
                                   ? const Color(0xFF8C5E3C)
                                   : const Color(0xFF1A1A1A),
                             ),
                           ),
                           const SizedBox(height: 2),
+
                           Text(
-                            'Hari ke-$day',
+                            isGuestActive ? 'Check-In' : 'Hari ke-$day',
                             style: GoogleFonts.poppins(
                               fontSize: 9,
-                              color: Colors.grey.shade500,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: isGuestActive
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
+                              color: isGuestActive
+                                  ? const Color(0xFF8C5E3C)
+                                  : (isChecked
+                                        ? const Color(0xFF8C5E3C)
+                                        : Colors.grey.shade500),
                             ),
                           ),
                         ],
@@ -813,9 +808,11 @@ class ProfilePage extends StatelessWidget {
                     horizontal: 16.0,
                     vertical: 2.0,
                   ),
-                  leading:
-                      item.customIcon ??
-                      Icon(item.icon, color: Colors.grey.shade700, size: 22),
+                  leading: Icon(
+                    item.icon,
+                    color: Colors.grey.shade700,
+                    size: 22,
+                  ),
                   title: Text(
                     item.title,
                     style: GoogleFonts.poppins(
@@ -920,14 +917,18 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // ─── COMING SOON TOAST ────────────────────────────────────────────
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Fitur "$feature" akan segera hadir.'),
-        duration: const Duration(seconds: 1),
-      ),
+  // ─── LAUNCH WHATSAPP BULK ORDER ───────────────────────────────────
+  Future<void> _launchWhatsAppBulkOrder(BuildContext context) async {
+    final Uri url = Uri.parse(
+      'https://wa.me/62895363648153?text=Halo%20waRRRung,%20saya%20ingin%20bertanya%20mengenai%20pemesanan%20jumlah%20besar',
     );
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membuka WhatsApp.')),
+        );
+      }
+    }
   }
 }
 
@@ -935,14 +936,12 @@ class ProfilePage extends StatelessWidget {
 
 class _MenuListItem {
   final IconData? icon;
-  final Widget? customIcon;
   final String title;
   final bool showBadge;
   final VoidCallback onTap;
 
   const _MenuListItem({
     this.icon,
-    this.customIcon,
     required this.title,
     this.showBadge = false,
     required this.onTap,

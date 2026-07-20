@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:warrrung_app/data/models/outlet_model.dart';
 import 'package:warrrung_app/providers/location_provider.dart';
+import 'package:warrrung_app/core/widgets/skeleton_loading_widget.dart';
+import 'package:warrrung_app/core/widgets/error_state_widget.dart';
 
 class LocationSelectionPage extends StatefulWidget {
   const LocationSelectionPage({super.key});
@@ -125,35 +127,54 @@ class _LocationSelectionPageState extends State<LocationSelectionPage> {
 
           // ─── OUTLETS LIST ────────────────────────────────────────────────
           Expanded(
-            child: locationProvider.isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFC62828),
+            child: RefreshIndicator(
+              onRefresh: () => locationProvider.loadOutlets(),
+              color: const Color(0xFFC62828),
+              child: locationProvider.isLoading
+                  ? const LocationSkeletonWidget()
+                  : locationProvider.hasError
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 40.0),
+                        child: ContentErrorCard(
+                          title: 'Gagal Memuat Konten',
+                          message: 'Coba lagi atau klik Muat Ulang',
+                          onRetry: () {
+                            showConnectionErrorModal(
+                              context,
+                              onConfirm: () => locationProvider.loadOutlets(),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  )
-                : locationProvider.outlets.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    itemCount: locationProvider.outlets.length,
-                    itemBuilder: (context, index) {
-                      final outlet = locationProvider.outlets[index];
-                      if (!_applyCustomFilters(outlet)) {
-                        return const SizedBox.shrink();
-                      }
+                    )
+                  : locationProvider.outlets.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: _buildEmptyState(),
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      itemCount: locationProvider.outlets.length,
+                      itemBuilder: (context, index) {
+                        final outlet = locationProvider.outlets[index];
+                        if (!_applyCustomFilters(outlet)) {
+                          return const SizedBox.shrink();
+                        }
 
-                      return _buildOutletCard(
-                        context,
-                        outlet,
-                        locationProvider,
-                      );
-                    },
-                  ),
+                        return _buildOutletCard(
+                          context,
+                          outlet,
+                          locationProvider,
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),

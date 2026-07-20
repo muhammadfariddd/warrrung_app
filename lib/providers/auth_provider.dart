@@ -225,7 +225,19 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint('Google OAuth2 failed: $e.');
-      _errorMessage = 'Gagal masuk via Google: $e';
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('network_error') ||
+          errStr.contains('apiexception: 7') ||
+          errStr.contains('clientexception') ||
+          errStr.contains('socketexception') ||
+          errStr.contains('failed host lookup') ||
+          errStr.contains('connection failed')) {
+        _errorMessage = 'Koneksi internet terputus. Periksa jaringan Anda dan coba lagi.';
+      } else if (errStr.contains('sign_in_canceled') || errStr.contains('canceled')) {
+        _errorMessage = 'Proses masuk dengan Google dibatalkan.';
+      } else {
+        _errorMessage = 'Gagal masuk via Google. Silakan coba beberapa saat lagi.';
+      }
       _isLoading = false;
       notifyListeners();
       return false;

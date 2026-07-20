@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:warrrung_app/order_confirmation_page.dart';
+import 'package:warrrung_app/providers/home_provider.dart';
+import 'package:warrrung_app/providers/location_provider.dart';
+import 'package:warrrung_app/core/widgets/error_state_widget.dart';
 
 class PesananTabScreen extends StatelessWidget {
   const PesananTabScreen({super.key});
@@ -56,14 +60,48 @@ class PesananTabScreen extends StatelessWidget {
             const OrderConfirmationPage(isEmbedded: true),
 
             // Tab 2: Riwayat Transaksi (Past Orders)
-            _buildOrderHistory(textDark, textGray, primaryRed),
+            _buildOrderHistory(context, textDark, textGray, primaryRed),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOrderHistory(Color dark, Color gray, Color primaryRed) {
+  Widget _buildOrderHistory(BuildContext context, Color dark, Color gray, Color primaryRed) {
+    final homeProvider = context.watch<HomeProvider>();
+    final locationProvider = context.watch<LocationProvider>();
+
+    if (homeProvider.state is HomeStateError || locationProvider.hasError) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          final selectedOutlet = locationProvider.selectedOutlet;
+          await homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+          await locationProvider.loadOutlets();
+        },
+        color: primaryRed,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 40.0),
+            child: ContentErrorCard(
+              title: 'Gagal Memuat Konten',
+              message: 'Coba lagi atau klik Muat Ulang',
+              onRetry: () {
+                showConnectionErrorModal(
+                  context,
+                  onConfirm: () {
+                    final selectedOutlet = locationProvider.selectedOutlet;
+                    homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+                    locationProvider.loadOutlets();
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
     final List<Map<String, dynamic>> mockOrders = [
       {
         'id': 'WRG-903741',
@@ -91,12 +129,19 @@ class PesananTabScreen extends StatelessWidget {
       }
     ];
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: mockOrders.length,
-      itemBuilder: (context, index) {
-        final order = mockOrders[index];
+    return RefreshIndicator(
+      onRefresh: () async {
+        final selectedOutlet = locationProvider.selectedOutlet;
+        await homeProvider.loadHomeData(outletId: selectedOutlet?.id);
+        await locationProvider.loadOutlets();
+      },
+      color: primaryRed,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: mockOrders.length,
+        itemBuilder: (context, index) {
+          final order = mockOrders[index];
         final String formattedPrice =
             'Rp${order['totalPrice'].toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 
@@ -221,6 +266,7 @@ class PesananTabScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 }
